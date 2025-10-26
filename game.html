@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>hellobrobb femboy clicker game</title>
+Expand
+message.txt
+34 KB
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>hellobrobb femboy clicker game</title>
+<style>
+/* ---------- base layout ---------- */
+* { box-sizing: border-box; user-select: none; -webkit-user-select: none; -ms-user-select: none; }
+body {
+  font-family: "Poppins", sans-serif;
+  background: linear-gradient(135deg, #ffc0cb, #add8e6);
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  color: #222;
+  position: relative;
+  transition: background 0.5s ease;
+  text-transform: lowercase;
+  padding-top: 50px;
+}
+/* heading and score */
+h1, #score, #comboDisplay { pointer-events: none; }
+h1 { font-size: 2.5rem; margin-bottom: 20px; z-index: 2; text-align: center; }
+#score { font-size: 2rem; margin-bottom: 30px; z-index: 2; }
+/* buttons */
+button { background-color: #ff6b6b; color: white; border: none; border-radius: 1rem; padding: 1rem 2rem; font-size: 1.5rem; cursor: pointer; transition: transform 0.1s, background-color 0.2s; z-index: 2; pointer-events: auto; text-transform: lowercase; margin: 10px; }
+button:hover { background-color: #ff8787; }
+#panelToggle { position: fixed; right: 18px; top: 18px; z-index: 60; width:48px; height:48px; border-radius:12px; padding:0; display:flex; align-items:center; justify-content:center; }
+/* upgrade panel */
+#upgradePanel { position: fixed; right: -360px; /* hidden by default */ top: 0; height: 100%; width: 360px; background: linear-gradient(180deg,#fff5fb,#e8f9ff); box-shadow: -8px 0 24px rgba(0,0,0,0.15); z-index: 55; padding: 20px; transition: right 0.32s cubic-bezier(.2,.9,.2,1); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; text-transform: lowercase; }
+#upgradePanel.open { right: 0; }
+#upgradePanel h2 { margin: 6px 0 12px 0; font-size: 1.15rem; text-align:center; }
+/* upgrade rows */
+.upgrade-row { background: linear-gradient(180deg,#ffeef3,#f0fbff); border-radius: 12px; padding: 12px; display:flex; align-items:center; gap:10px; box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
+.upgrade-row img { width:64px; height:64px; border-radius:8px; object-fit:cover; pointer-events:none; }
+.upgrade-info { flex:1; display:flex; flex-direction:column; gap:6px; }
+.upgrade-info .title { font-weight:700; font-size:1rem; }
+.upgrade-info .desc { font-size:0.9rem; color:#444; }
+.upgrade-cost { font-weight:900; font-size:1rem; }
+/* popup images */
+.popup { position: absolute; width: 100px; height: 100px; opacity: 0; pointer-events: auto; transition: opacity 0.35s ease-out, transform 0.35s; user-select: none; -webkit-user-drag: none; border-radius: 15px; border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 8px 20px rgba(0,0,0,0.18); background: #fff; overflow:hidden; z-index:30; }
+.popup.show { opacity: 1; transform: scale(1); }
+.popup img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+/* gold styling for golden popup (visual only) */
+.popup.golden { border-color: rgba(255,223,0,0.95); box-shadow: 0 10px 30px rgba(255,200,40,0.25); filter: drop-shadow(0 8px 20px rgba(255,200,40,0.18)); }
+/* goon corner visuals */
+.goon-corner { position: absolute; width: 160px; height: 160px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.22); border: 4px solid rgba(255,255,255,0.8); z-index: 40; transform-origin: center; transition: opacity 0.6s; }
+.goon-corner img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+.goon-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 6px 8px; border-radius: 8px; font-weight:800; font-size: 0.9rem; text-transform: lowercase; pointer-events:none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+/* central combo display (restored) */
+#comboDisplay { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 4rem; font-weight: 900; color: white; text-shadow: 0 0 30px rgba(255,192,203,0.9); opacity: 0; z-index: 41; transition: opacity 0.18s, transform 0.18s; pointer-events: none; }
+/* golden screen flash overlay */
+#goldFlash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 30%, rgba(255,240,200,0.95), rgba(255,220,80,0.25) 35%, rgba(255,200,0,0.08) 50%, rgba(0,0,0,0) 70%); pointer-events: none; opacity: 0; z-index: 60; transition: opacity 0.35s; }
+/* screen flash / particles */
+#flash{position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; opacity:0; z-index:1; transition:opacity 0.2s;}
+.particle{position:absolute; width:10px; height:10px; border-radius:50%; pointer-events:none; z-index:50;}
+/* wiggle */
+@keyframes comboWiggle {
+  0%,100%{transform:translate(-50%,-50%) rotate(0deg);}
+  25%{transform:translate(-50%,-50%) rotate(5deg);}
+  50%{transform:translate(-50%,-50%) rotate(-5deg);}
+  75%{transform:translate(-50%,-50%) rotate(5deg);}
+}
+.combo-wiggle{animation:comboWiggle 0.45s ease-in-out;}
+.ad{position:absolute; width:150px; height:120px; z-index:20; border:3px solid white; border-radius:10px; overflow:hidden;}
+.ad iframe{width:100%; height:100%; pointer-events:auto;}
+.ad-close{position:absolute; top:2px; right:2px; background:#ff6b6b; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:14px; cursor:pointer; z-index:21;}
+/* info modal */
+#infoModal{ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: linear-gradient(135deg,#add8e6,#ffc0cb); border-radius: 15px; padding: 30px; text-align: center; z-index: 50; box-shadow: 0 0 20px rgba(0,0,0,0.3); color: #222; max-width: 400px; font-size: 1.1rem; text-transform: lowercase; }
+#infoModal button{margin-top:15px; background:#ff6b6b; color:white; border:none; padding:10px 20px; border-radius:10px; font-size:1rem; cursor:pointer; text-transform: lowercase;}
+/* Rave / music visual */
+body.rave {
+  animation: raveBG 3s linear infinite;
+  background-size: 400% 400%;
+}
+@keyframes raveBG {
+  0% { background: linear-gradient(135deg, #ff9aa2, #ffd3b6); }
+  25% { background: linear-gradient(135deg, #ffb3ba, #bde0fe); }
+  50% { background: linear-gradient(135deg, #caffbf, #ffd6e0); }
+  75% { background: linear-gradient(135deg, #ffdfba, #c7ceea); }
+  100% { background: linear-gradient(135deg, #ff9aa2, #ffd3b6); }
+}
+#raveText {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3.2rem;
+  font-weight: 900;
+  z-index: 80;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(90deg, #ff6b6b, #ffcc00, #6bceff, #9bff8a, #ff6b6b);
+  text-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  animation: pulse 0.9s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes pulse { 0%{transform:translateX(-50%) scale(0.95)} 50%{transform:translateX(-50%) scale(1.08)} 100%{transform:translateX(-50%) scale(0.95)} }
+
+/* start-the-rave modal */
+#raveModal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(255,255,255,0.95); border-radius: 18px; padding: 28px; text-align: center; z-index: 90; box-shadow: 0 10px 40px rgba(0,0,0,0.35); color:#222; }
+#raveModal .rave-title { font-size: 1.6rem; font-weight:900; margin-bottom:8px; background: linear-gradient(90deg,#ff6b6b,#ffcc00,#6bceff); -webkit-background-clip:text; color:transparent; }
+#raveModal button { font-size:1.25rem; padding:12px 22px; border-radius: 12px; }
+
+/* popup & responsive tweaks */
+@media (max-width:600px){
+  .goon-corner { width:120px; height:120px; }
+  .popup { width: 80px; height: 80px; }
+  #upgradePanel { width: 300px; right: -300px; }
+}
+</style>
+</head>
+<body>
+<h1>hellobrobb femboy clicker game 💫</h1>
+<div id="score">tail wags: 0</div>
+<button id="clickBtn">wag tail</button>
+<!-- panel toggle -->
+<button id="panelToggle" title="upgrades">⚙️</button>
+<!-- sliding upgrade panel -->
+<div id="upgradePanel" aria-hidden="true">
+  <h2>upgrades</h2>
+
+  <div class="upgrade-row" id="upgrade-default-row">
+    <img src="https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?q=80&w=200&auto=format&fit=crop&ixlib=rb-4.0.3&s=placeholder" alt="combo" />
+    <div class="upgrade-info">
+      <div class="title">default combo increase</div>
+      <div class="desc">increases your default combo (applies when combos reset)</div>
+      <div class="desc">current: <span id="baseComboDisplay">1</span></div>
+    </div>
+    <div>
+      <div class="upgrade-cost" id="upgradeCostText">cost: 50</div>
+      <button id="upgradeDefaultBtn" style="margin-top:8px;padding:8px 12px;font-size:0.9rem;">buy</button>
+    </div>
+  </div>
+
+  <div class="upgrade-row" id="goon-row">
+    <img src="https://static.wikia.nocookie.net/aesthetics/images/e/e8/Femboy_castiel_onyx.jpg/revision/latest?cb=20230730190533" alt="goon corner" />
+    <div class="upgrade-info">
+      <div class="title">goon corner</div>
+      <div class="desc">spawns a goon corner image on screen for ~20s — popups spawn more often around it</div>
+      <div class="desc">price: base default level × 200</div>
+    </div>
+    <div>
+      <div class="upgrade-cost" id="goonCostText">cost: 200</div>
+      <button id="buyGoonBtn" style="margin-top:8px;padding:8px 12px;font-size:0.9rem;">buy</button>
+    </div>
+  </div>
+
+  <div class="upgrade-row" id="midas-row">
+    <img id="midasImg" src="https://m.gjcdn.net/fireside-post-image/900/17320539-vkukq99y-v4.webp" alt="midas" />
+    <div class="upgrade-info">
+      <div class="title">midas touchies</div>
+      <div class="desc">each purchase +5% golden spawn chance (caps at 100%)</div>
+      <div class="desc">current chance: <span id="midasChanceDisplay">0%</span></div>
+    </div>
+    <div>
+      <div class="upgrade-cost" id="midasCostText">cost: 500</div>
+      <button id="buyMidasBtn" style="margin-top:8px;padding:8px 12px;font-size:0.9rem;">buy</button>
+    </div>
+  </div>
+
+  <div class="upgrade-row" id="swish-row">
+    <!-- swapped image -->
+    <img src="https://i.redd.it/717gqnrw5efd1.gif" alt="swish" />
+    <div class="upgrade-info">
+      <div class="title">more swishies</div>
+      <div class="desc">adds +1 extra boykisser spawn on click per purchase</div>
+      <div class="desc">current extra: <span id="swishLevelDisplay">0</span></div>
+    </div>
+    <div>
+      <div class="upgrade-cost" id="swishCostText">cost: 1000</div>
+      <button id="buySwishBtn" style="margin-top:8px;padding:8px 12px;font-size:0.9rem;">buy</button>
+    </div>
+  </div>
+
+  <!-- music upgrade row -->
+  <div class="upgrade-row" id="music-row">
+    <img src="https://i.redd.it/0znk870gnatb1.gif" alt="rave music" />
+    <div class="upgrade-info">
+      <div class="title">background music</div>
+      <div class="desc">play a 1:48 rave — while it plays everything flashes rainbow and all wags are x2</div>
+      <div class="desc">duration: 1:48 — current: <span id="musicStatus">not owned</span></div>
+    </div>
+    <div>
+      <div class="upgrade-cost" id="musicCostText">cost: 1500</div>
+      <button id="buyMusicBtn" style="margin-top:8px;padding:8px 12px;font-size:0.9rem;">buy</button>
+    </div>
+  </div>
+
+  <div style="height:18px"></div>
+  <div style="text-align:center;color:#666;font-size:0.95rem;">tip: buy goon corners to make combos spawn near them more often; midas increases golden chance; swishies add more spawns per click</div>
+</div>
+
+<div id="comboDisplay"></div>
+<div id="flash"></div>
+<div id="goldFlash"></div>
+
+<div id="infoModal">
+  <p>hey! :3 come and wag your lil femboy tail to gain points with me! :o<br>click on the femboy to start a combo, the bigger the combo, the more tail waggies you get! :3<br>but you have to move your mouse fast because your combo will reset!! :o<br>click on pop-ups or buy upgades to increase combo1!!1!! have fun ang wag that tail >:3</p>
+  <button id="closeModal">let's play!</button>
+</div>
+
+<!-- Rave UI -->
+<div id="raveText" style="display:none;">x2 wags!</div>
+<div id="raveModal" style="display:none;">
+  <div class="rave-title">start the rave</div>
+  <div style="margin:12px 0;">are you ready to start the 1:48 beat?</div>
+  <button id="startRaveBtn">▶️ start the rave</button>
+</div>
+
+<!-- sounds -->
+<audio id="clickSound" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
+<audio id="upgradeSound" src="https://freesound.org/data/previews/256/256113_3263906-lq.mp3"></audio>
+<audio id="comboSound" src="https://freesound.org/data/previews/144/144689_2221220-lq.mp3"></audio>
+<audio id="popupSound" src="https://freesound.org/data/previews/276/276031_5121236-lq.mp3"></audio>
+<audio id="adSound" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
+<audio id="bellChime" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
+<audio id="goldChime" src="https://freesound.org/data/previews/186/186942_2394245-lq.mp3"></audio>
+
+<!-- background music file you said you've uploaded to VS Code -->
+<audio id="bgMusic" src="song.mp3"></audio>
+
+<script>
+/* ---------- state ---------- */
+let score = 0;
+let pointsPerClick = 1;
+let upgradeCost = 50;
+let baseCombo = 1;
+let comboMultiplier = 1;
+let comboActive = false;
+let comboTimer = null;
+const comboTimeoutMs = 5000; // 5s
+
+// goon pricing: set price = baseCombo * 200 (fixed)
+let goonCost = baseCombo * 200;
+
+// swishies: growth x5 per buy
+let swishLevel = 0;
+let swishCost = 1000;
+const swishBuyMultiplier = 5;
+
+// midas
+const baseGoldenChance = 1/25; // ~4%
+let midasChancePercent = 0;
+let midasCost = 500;
+const midasBuyMultiplier = 1.5;
+const midasPercentPerBuy = 5;
+const maxMidasPercent = 100;
+
+// music
+let musicPurchased = false;
+let musicActive = false;
+let musicCost = 1500; // change if you want
+const musicDurationMs = (1*60 + 48) * 1000; // 1:48 -> 108s (but we'll rely on audio 'ended' event)
+const bgMusic = document.getElementById("bgMusic");
+
+// golden image
+const goldenImage = "https://preview.redd.it/this-is-the-boykisser-of-undying-he-only-comes-once-every-v0-37l6o31j02ld1.png?auto=webp&s=fd8e490da4adb67f7db011a332d06f8cf7e78b2a";
+
+/* goon images */
+const goonImagePool = [
+  "https://static.wikia.nocookie.net/aesthetics/images/e/e8/Femboy_castiel_onyx.jpg/revision/latest?cb=20230730190533",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSzMmGFHv_WOPQ4eZuRdPD3AhaKae1FdsZD-A&s",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShZ9W9alXd0e-TG9sl8pPhgnf8Q1gB1izghg&s",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjAWNgshX5jL--frLUMtTU-3XuLbJQUylOtQ&s",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2v1v2hOMEfpPm37yEsM0a_tsDeJpoSBsNKw&s"
+];
+
+/* active lists */
+const activeGoonCorners = []; // { element, x, y, timeoutId }
+let activePopups = []; // { element, timeoutId, isGolden, size, x, y }
+
+/* DOM refs */
+const scoreDisplay = document.getElementById("score");
+const clickBtn = document.getElementById("clickBtn");
+const comboDisplay = document.getElementById("comboDisplay");
+const flash = document.getElementById("flash");
+const goldFlash = document.getElementById("goldFlash");
+const infoModal = document.getElementById("infoModal");
+const closeModal = document.getElementById("closeModal");
+const clickSound = document.getElementById("clickSound");
+const upgradeSound = document.getElementById("upgradeSound");
+const comboSound = document.getElementById("comboSound");
+const popupSound = document.getElementById("popupSound");
+const adSound = document.getElementById("adSound");
+const bellChime = document.getElementById("bellChime");
+const goldChime = document.getElementById("goldChime");
+
+/* upgrades UI */
+const panelToggle = document.getElementById("panelToggle");
+const upgradePanel = document.getElementById("upgradePanel");
+const upgradeDefaultBtn = document.getElementById("upgradeDefaultBtn");
+const upgradeCostText = document.getElementById("upgradeCostText");
+const baseComboDisplay = document.getElementById("baseComboDisplay");
+const goonCostText = document.getElementById("goonCostText");
+const buyGoonBtn = document.getElementById("buyGoonBtn");
+const midasCostText = document.getElementById("midasCostText");
+const buyMidasBtn = document.getElementById("buyMidasBtn");
+const midasChanceDisplay = document.getElementById("midasChanceDisplay");
+const swishCostText = document.getElementById("swishCostText");
+const buySwishBtn = document.getElementById("buySwishBtn");
+const swishLevelDisplay = document.getElementById("swishLevelDisplay");
+const musicCostText = document.getElementById("musicCostText");
+const buyMusicBtn = document.getElementById("buyMusicBtn");
+const musicStatus = document.getElementById("musicStatus");
+const raveText = document.getElementById("raveText");
+const raveModal = document.getElementById("raveModal");
+const startRaveBtn = document.getElementById("startRaveBtn");
+
+/* audio helper */
+function playSound(sound){ try{ sound.currentTime = 0; sound.play(); } catch(e){} }
+function playBell(){ playSound(bellChime); }
+
+/* update UI */
+function updateDisplay(){
+  scoreDisplay.textContent = "tail wags: " + score + " (x" + comboMultiplier + ")";
+  baseComboDisplay.textContent = baseCombo;
+  upgradeCostText.textContent = "cost: " + upgradeCost;
+  // goon cost is always baseCombo * 200
+  goonCost = baseCombo * 200;
+  goonCostText.textContent = "cost: " + goonCost;
+  midasCostText.textContent = "cost: " + midasCost;
+  midasChanceDisplay.textContent = Math.min(midasChancePercent, maxMidasPercent) + "%";
+  swishCostText.textContent = "cost: " + swishCost;
+  swishLevelDisplay.textContent = swishLevel;
+  musicCostText.textContent = "cost: " + musicCost;
+  musicStatus.textContent = musicPurchased ? "owned" : "not owned";
+}
+
+/* panel toggle */
+panelToggle.addEventListener("click", () => {
+  const open = upgradePanel.classList.toggle("open");
+  upgradePanel.setAttribute("aria-hidden", !open);
+  playBell();
+});
+
+/* modal */
+closeModal.addEventListener("click", () => { infoModal.style.display = "none"; playBell(); });
+
+/* visual fx */
+function shakeScreen(){ document.body.classList.add("shake"); setTimeout(()=>document.body.classList.remove("shake"),250); }
+function flashColor(){ const colors=["#ffc0cb","#add8e6","#ffb6c1","#87cefa","#ff69b4"]; flash.style.background=colors[Math.floor(Math.random()*colors.length)]; flash.style.opacity=0.6; setTimeout(()=>flash.style.opacity=0,150); }
+
+/* spawn particles */
+function spawnParticles(x,y,amount=15, hue=null){
+  for(let i=0;i<amount;i++){
+    const p = document.createElement("div");
+    p.classList.add("particle");
+    const size = 6 + Math.random()*12;
+    p.style.width = p.style.height = size + "px";
+    if(hue === "gold"){
+      p.style.background = "hsl(" + (Math.random()*40 + 40) + ", 90%, 60%)";
+      p.style.boxShadow = "0 0 10px rgba(255,220,120,0.9)";
+    } else {
+      p.style.background = "hsl(" + (Math.random()*360) + ",70%,80%)";
+    }
+    document.body.appendChild(p);
+    p.style.left = x + "px";
+    p.style.top = y + "px";
+    const angle = Math.random()*2*Math.PI, distance = Math.random()*120+40, duration = 600+Math.random()*800;
+    const dx = Math.cos(angle)*distance, dy = Math.sin(angle)*distance;
+    p.animate([{transform:"translate(0,0) scale(1)",opacity:1},{transform:"translate(" + dx + "px," + dy + "px) scale(0.2)",opacity:0}],{duration:duration,easing:"cubic-bezier(.2,.9,.2,1)",fill:"forwards"});
+    setTimeout(()=>p.remove(),duration);
+  }
+}
+
+/* central combo visuals */
+function showComboText(emphasize=false){
+  comboDisplay.style.opacity = 1;
+  comboDisplay.style.transform = "translate(-50%, -50%) scale(" + (emphasize ? 1.32 : 1.12) + ")";
+  comboDisplay.textContent = "combo x" + comboMultiplier;
+  comboDisplay.classList.add("combo-wiggle");
+  setTimeout(()=>comboDisplay.classList.remove("combo-wiggle"),500);
+}
+function hideComboText(){ comboDisplay.style.opacity = 0; }
+
+/* ---------- spawn position with goon bias ---------- */
+function getPopupSpawnPosition(popupSize=100){
+  const hasGoon = activeGoonCorners.length > 0;
+  if(hasGoon && Math.random() < 0.7){
+    const g = activeGoonCorners[Math.floor(Math.random()*activeGoonCorners.length)];
+    const radius = 130;
+    const angle = Math.random()*Math.PI*2;
+    const r = Math.random()*radius;
+    const x = Math.min(Math.max(g.x + Math.cos(angle)*r, 8), window.innerWidth - popupSize - 8);
+    const y = Math.min(Math.max(g.y + Math.sin(angle)*r, 8), window.innerHeight - popupSize - 8);
+    return {x, y};
+  } else {
+    const x = Math.random()*(window.innerWidth - popupSize - 8) + 8;
+    const y = Math.random()*(window.innerHeight - popupSize - 8) + 8;
+    return {x, y};
+  }
+}
+
+/* utility: compute lifetime for popup depending on golden and goon proximity */
+function computePopupLifetime(posX, posY, size, isGolden){
+  let lifetime = 1200 + (isGolden ? 1000 : 0);
+  for(const g of activeGoonCorners){
+    const dx = (posX + size/2) - g.x;
+    const dy = (posY + size/2) - g.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < 160){
+      lifetime += 800;
+      break;
+    }
+  }
+  return lifetime;
+}
+
+/* ---------- popup spawning (normal) ---------- */
+function spawnPopup({isGolden=false, fromClick=false} = {}){
+  playSound(popupSound);
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("popup");
+  if(isGolden) wrapper.classList.add("golden");
+  const img = document.createElement("img");
+  if(isGolden){
+    img.src = goldenImage;
+  } else {
+    img.src = "https://images.seeklogo.com/logo-png/49/2/boykisser-logo-png_seeklogo-494559.png";
+  }
+  img.draggable = false;
+  wrapper.appendChild(img);
+  const size = isGolden ? 120 : 100;
+  const pos = getPopupSpawnPosition(size);
+  wrapper.style.left = pos.x + "px";
+  wrapper.style.top = pos.y + "px";
+  wrapper.style.width = size + "px";
+  wrapper.style.height = size + "px";
+  document.body.appendChild(wrapper);
+  wrapper.style.transform = "scale(0.95)";
+  requestAnimationFrame(()=>{ wrapper.classList.add("show"); wrapper.style.transform = "scale(1)"; });
+
+  let clicked = false;
+  const popupData = { element: wrapper, timeoutId: null, isGolden, size, x: pos.x, y: pos.y };
+  activePopups.push(popupData);
+
+  const lifetime = computePopupLifetime(pos.x, pos.y, size, isGolden);
+  popupData.timeoutId = setTimeout(()=> {
+    if(!clicked){
+      wrapper.classList.remove("show");
+      setTimeout(()=>{ try{ wrapper.remove(); }catch(e){}; activePopups = activePopups.filter(p => p.element !== wrapper); }, 300);
+    }
+  }, lifetime);
+
+  wrapper.addEventListener("click", (e)=>{
+    if(clicked) return;
+    clicked = true;
+    clearTimeout(popupData.timeoutId);
+    try{ wrapper.remove(); } catch(e){}
+    activePopups = activePopups.filter(p => p.element !== wrapper);
+    // When any popup is clicked, reset all other popup timers
+    refreshAllPopupTimers();
+
+    // golden vs normal behavior
+    if(isGolden){
+      // immediate big combo bump and visuals
+      if(!comboActive){
+        comboActive = true;
+        comboMultiplier = baseCombo + 1;
+      }
+      comboMultiplier += 10;
+      goldFlash.style.opacity = 1;
+      setTimeout(()=>{ goldFlash.style.opacity = 0; }, 800);
+      spawnParticles(e.clientX, e.clientY, 40, "gold");
+      playSound(goldChime);
+      shakeScreen();
+      goldenPermanentPush(e.clientX, e.clientY, 180);
+      showComboText(true);
+    } else {
+      playSound(clickSound);
+      showComboText();
+    }
+
+    // trigger combo visuals and reset combo timer
+    triggerCombo(e.clientX, e.clientY);
+  });
+}
+
+/* ---------- refresh all popup timers (reset fade timers when a popup is clicked) ---------- */
+function refreshAllPopupTimers(){
+  activePopups.forEach(p => {
+    try {
+      clearTimeout(p.timeoutId);
+      const lifetime = computePopupLifetime(p.x, p.y, p.size, p.isGolden);
+      p.timeoutId = setTimeout(()=> {
+        p.element.classList.remove("show");
+        setTimeout(()=>{ try{ p.element.remove(); }catch(e){}; activePopups = activePopups.filter(pp => pp.element !== p.element); }, 300);
+      }, lifetime);
+    } catch(e){}
+  });
+}
+
+/* ---------- golden permanent push: nudges other popups outward and updates positions ---------- */
+function goldenPermanentPush(cx, cy, radius=180){
+  const affected = [];
+  activePopups.forEach(p => {
+    const el = p.element;
+    try {
+      const rect = el.getBoundingClientRect();
+      const px = rect.left + rect.width/2;
+      const py = rect.top + rect.height/2;
+      const dx = px - cx, dy = py - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < radius && dist > 8){
+        const pushStrength = (1 - dist / radius) * 140;
+        const angleJitter = (Math.random() - 0.5) * 0.6;
+        const angle = Math.atan2(dy, dx) + angleJitter;
+        const tx = Math.cos(angle) * pushStrength;
+        const ty = Math.sin(angle) * pushStrength;
+        affected.push({ p, tx, ty });
+      }
+    } catch(e){}
+  });
+
+  affected.forEach(a => {
+    const el = a.p.element;
+    const rect = el.getBoundingClientRect();
+    const newLeft = Math.min(Math.max(rect.left + a.tx, 8), window.innerWidth - rect.width - 8);
+    const newTop = Math.min(Math.max(rect.top + a.ty, 8), window.innerHeight - rect.height - 8);
+    const dx = newLeft - rect.left;
+    const dy = newTop - rect.top;
+    el.animate([ { transform: "translate(0px,0px)" }, { transform: "translate(" + dx + "px," + dy + "px)" } ], { duration: 420, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+    setTimeout(()=> {
+      try { el.style.left = newLeft + "px"; el.style.top = newTop + "px"; } catch(e){}
+      try { a.p.x = newLeft; a.p.y = newTop; } catch(e){}
+    }, 430);
+  });
+}
+
+/* ---------- combo logic ---------- */
+function triggerCombo(x,y){
+  playSound(comboSound);
+  shakeScreen();
+  flashColor();
+  spawnParticles(x || (window.innerWidth/2), y || (window.innerHeight/2), 12 + comboMultiplier*2);
+  showComboText();
+  if(!comboActive){
+    comboActive = true;
+    comboMultiplier = baseCombo + 1;
+  } else {
+    comboMultiplier++;
+  }
+  updateDisplay();
+  clearTimeout(comboTimer);
+  comboTimer = setTimeout(()=>{ resetCombo(); }, comboTimeoutMs);
+}
+function resetCombo(){
+  comboActive = false;
+  comboMultiplier = baseCombo;
+  document.body.style.background = "linear-gradient(135deg, #ffc0cb, #add8e6)";
+  hideComboText();
+  updateDisplay();
+}
+
+/* ---------- upgrades handlers ---------- */
+upgradeDefaultBtn.addEventListener("click", () => {
+  if(score >= upgradeCost){
+    score -= upgradeCost;
+    baseCombo++;
+    comboMultiplier = baseCombo;
+    upgradeCost = Math.floor(upgradeCost * 2.5);
+    // set goonCost to baseCombo * 200
+    goonCost = baseCombo * 200;
+    updateDisplay();
+    playSound(upgradeSound);
+    playBell();
+  } else { alert("not enough points!"); }
+});
+
+buyGoonBtn.addEventListener("click", () => {
+  // price is baseCombo * 200
+  const currentGoonPrice = baseCombo * 200;
+  if(score >= currentGoonPrice){
+    score -= currentGoonPrice;
+    createGoonCorner();
+    // goonCost remains baseCombo*200 (fixed)
+    updateDisplay();
+    playSound(upgradeSound);
+    playBell();
+  } else { alert("not enough points!"); }
+});
+
+buyMidasBtn.addEventListener("click", () => {
+  if(score >= midasCost){
+    score -= midasCost;
+    midasChancePercent = Math.min(maxMidasPercent, midasChancePercent + midasPercentPerBuy);
+    midasCost = Math.ceil(midasCost * midasBuyMultiplier);
+    updateDisplay();
+    playSound(upgradeSound);
+    playBell();
+  } else { alert("not enough points!"); }
+});
+
+buySwishBtn.addEventListener("click", () => {
+  if(score >= swishCost){
+    score -= swishCost;
+    swishLevel++;
+    swishCost = Math.ceil(swishCost * swishBuyMultiplier); // x5 growth
+    updateDisplay();
+    playSound(upgradeSound);
+    playBell();
+  } else { alert("not enough points!"); }
+});
+
+buyMusicBtn.addEventListener("click", () => {
+  if(musicPurchased){ alert("you already own the background music! click 'start the rave' in the panel to play."); return; }
+  if(score >= musicCost){
+    score -= musicCost;
+    musicPurchased = true;
+    updateDisplay();
+    playSound(upgradeSound);
+    playBell();
+    // Show the big "start the rave" modal (user must click to actually start)
+    raveModal.style.display = "block";
+  } else { alert("not enough points!"); }
+});
+
+/* ---------- create goon corner ---------- */
+function createGoonCorner(){
+  const src = goonImagePool[Math.floor(Math.random()*goonImagePool.length)];
+  const el = document.createElement("div");
+  el.classList.add("goon-corner");
+  const img = document.createElement("img");
+  img.src = src;
+  img.draggable = false;
+  el.appendChild(img);
+  const label = document.createElement("div");
+  label.classList.add("goon-label");
+  label.textContent = "goon corner";
+  el.appendChild(label);
+  const w = 160, h = 160;
+  const x = Math.random()*(window.innerWidth - w - 24) + 12;
+  const y = Math.random()*(window.innerHeight - h - 24) + 12;
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>{ el.style.opacity = "1"; el.style.transform = "scale(1)"; });
+  const centerX = x + w/2, centerY = y + h/2;
+  const timeoutId = setTimeout(()=> {
+    el.style.opacity = "0";
+    setTimeout(()=> { try{ el.remove(); } catch(e){}; }, 600);
+    const idx = activeGoonCorners.findIndex(g => g.element === el);
+    if(idx !== -1) activeGoonCorners.splice(idx,1);
+  }, 20000 + Math.floor(Math.random()*5000));
+  activeGoonCorners.push({ element: el, x: centerX, y: centerY, timeoutId });
+  spawnParticles(centerX, centerY, 20);
+}
+
+/* ---------- ad logic (kept) ---------- */
+function spawnAd(){
+  const ad = document.createElement("div");
+  ad.classList.add("ad");
+  const iframe = document.createElement("iframe");
+  iframe.src = "https://www.youtube.com/embed/QSjYpZCP6I0?autoplay=1&mute=1";
+  iframe.frameBorder = "0";
+  iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+  ad.appendChild(iframe);
+  const closeBtn = document.createElement("button");
+  closeBtn.classList.add("ad-close");
+  closeBtn.textContent = "×";
+  ad.appendChild(closeBtn);
+  const x = Math.random()*(window.innerWidth-160), y = Math.random()*(window.innerHeight-140);
+  ad.style.left = x + "px";
+  ad.style.top = y + "px";
+  document.body.appendChild(ad);
+  closeBtn.addEventListener("click", () => {
+    playSound(adSound);
+    playBell();
+    comboMultiplier += 5;
+    updateDisplay();
+    comboDisplay.classList.add("combo-wiggle");
+    setTimeout(()=>comboDisplay.classList.remove("combo-wiggle"),300);
+    spawnParticles(x+75,y+60,30);
+    ad.remove();
+  });
+  setTimeout(()=>{ if(ad.parentElement) ad.remove(); }, 15000);
+}
+setInterval(()=>{ if(Math.random()<0.7) spawnAd(); }, 5000 + Math.random()*5000);
+
+/* spawn periodic popups - increased chance when goons exist */
+setInterval(()=>{ const hasGoon = activeGoonCorners.length > 0; let chance = 0.45; if(hasGoon) chance += 0.28; if(Math.random() < chance) spawnPopup(); }, 900 + Math.random()*700);
+
+/* click button behavior (with golden chance + midas + swishies) */
+clickBtn.addEventListener("click", (e) => {
+  // compute final golden chance
+  const midasFraction = Math.min(midasChancePercent, maxMidasPercent) / 100;
+  const finalGoldenChance = Math.min(1, baseGoldenChance + midasFraction);
+  // spawn main popup (may be golden)
+  const isGoldenMain = Math.random() < finalGoldenChance;
+  spawnPopup({ isGolden: isGoldenMain, fromClick: true });
+  // spawn extra popups due to swishLevel (always normal)
+  for(let i=0;i<swishLevel;i++){ spawnPopup({ isGolden: false, fromClick: true }); }
+  // calculate score increment; music doubles wags
+  const multiplier = comboMultiplier * (musicActive ? 2 : 1);
+  score += pointsPerClick * multiplier;
+  updateDisplay();
+  playSound(clickSound);
+  playBell();
+});
+
+/* Rave start handling */
+startRaveBtn.addEventListener("click", () => {
+  raveModal.style.display = "none";
+  // Play the bg music and set effects
+  try {
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(()=>{ /* autoplay may be blocked; user clicked so should be fine */ });
+  } catch(e){}
+  // Activate visuals & doubled points
+  musicActive = true;
+  document.body.classList.add("rave");
+  raveText.style.display = "block";
+  playBell();
+});
+
+/* When bgMusic ends, remove effects */
+bgMusic.addEventListener("ended", () => {
+  musicActive = false;
+  document.body.classList.remove("rave");
+  raveText.style.display = "none";
+  playBell();
+});
+
+/* on resize, recalc goon centers */
+window.addEventListener("resize", () => {
+  for(const g of activeGoonCorners){
+    try {
+      const rect = g.element.getBoundingClientRect();
+      g.x = rect.left + rect.width/2;
+      g.y = rect.top + rect.height/2;
+    } catch(e){}
+  }
+});
+
+/* ensure combo display persists & is correct on init */
+comboMultiplier = baseCombo;
+updateDisplay();
+</script>
+</body>
+</html>
