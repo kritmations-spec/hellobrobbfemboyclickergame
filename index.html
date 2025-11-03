@@ -1119,7 +1119,6 @@ if(whiteCanEl) {
   <h2>Top 5 Players</h2>
   <ul id="leaderboardList"></ul>
   <p style="text-align:center;">Your username: <strong id="lbCurrentName">---</strong></p>
-  <div style="text-align:center;margin-top:10px;"><button id="changeUsernameBtn" style="padding:6px 12px;">Change Username</button></div>
 </div>
 
 <button id="leaderboardToggle">🏆</button>
@@ -1168,25 +1167,6 @@ const usernameRandom = document.getElementById("usernameRandom");
 lbToggle.addEventListener("click", ()=> lbPanel.classList.toggle("open"));
 
 // === Username handling ===
-const changeBtn = document.getElementById("changeUsernameBtn");
-if(changeBtn){
-  changeBtn.addEventListener("click", ()=>{
-    const newName = prompt("Enter a new 5-letter username:","").toUpperCase().trim();
-    if(!/^[A-Z]{5}$/.test(newName)){ alert("Must be exactly 5 letters."); return; }
-    nameExists(newName).then(exists => {
-      if(exists){ alert("That username is taken! Choose another."); return; }
-      // Remove old name entry from Firebase if desired
-      if(username && username !== newName){
-        set(ref(db, "scores/" + username), null);
-      }
-      username = newName;
-      localStorage.setItem("cg_username_5", newName);
-      lbCurrentName.textContent = newName;
-      pushScore();
-      alert("Username changed successfully to " + newName + "!");
-    });
-  });
-}
 let username = null;
 let lastPushedScore = 0;
 
