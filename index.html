@@ -1075,6 +1075,198 @@ if(whiteCanEl) {
   // (should exist by markup)
 }
 </script>
+
+<!-- ======= BEGIN Leaderboard & Username Integration ======= -->
+<style>
+#leaderboardPanel {
+  position: fixed;
+  left: -420px;
+  top: 0;
+  width: 420px;
+  height: 100%;
+  background: #fff;
+  box-shadow: 8px 0 24px rgba(0,0,0,0.2);
+  transition: left 0.3s ease;
+  z-index: 9999;
+  padding: 20px;
+  overflow-y: auto;
+  color: #000;
+}
+#leaderboardPanel.open { left: 0; }
+#leaderboardPanel h2 { text-align: center; margin-top: 0; }
+#leaderboardList li { padding: 8px 0; border-bottom: 1px solid #ddd; list-style:none; }
+#usernameModal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10000;
+}
+#usernameBox {
+  background: #fff; padding: 30px; border-radius: 15px;
+  text-align: center; max-width: 320px;
+}
+#usernameBox input {
+  font-size: 1.2rem; padding: 10px; width: 80%;
+  text-transform: uppercase; letter-spacing: 3px; text-align: center;
+}
+#leaderboardToggle {
+  position: fixed; left: 18px; top: 18px;
+  width: 48px; height: 48px; border-radius: 12px;
+  z-index: 10001; font-size: 1.5rem; cursor: pointer;
+}
+</style>
+
+<div id="leaderboardPanel">
+  <h2>Top 5 Players</h2>
+  <ul id="leaderboardList"></ul>
+  <p style="text-align:center;">Your username: <strong id="lbCurrentName">---</strong></p>
+  <div style="text-align:center;margin-top:10px;"><button id="changeUsernameBtn" style="padding:6px 12px;">Change Username</button></div>
+</div>
+
+<button id="leaderboardToggle">🏆</button>
+
+<div id="usernameModal">
+  <div id="usernameBox">
+    <h2>Enter your 5‑letter name</h2>
+    <input id="usernameInput" maxlength="5" placeholder="ABCDE">
+    <div style="margin-top:10px;">
+      <button id="usernameConfirm">Confirm</button>
+      <button id="usernameRandom">Random</button>
+    </div>
+    <p style="margin-top:10px;color:#666;font-size:0.9rem;">Names are unique and saved per browser</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+
+// === Firebase Config (yours) ===
+const firebaseConfig = {
+  apiKey: "AIzaSyDh85Pd2VBdDVGrLCGr7sJAQSSClivAwO8",
+  authDomain: "clickergame-beba8.firebaseapp.com",
+  databaseURL: "https://clickergame-beba8-default-rtdb.firebaseio.com",
+  projectId: "clickergame-beba8",
+  storageBucket: "clickergame-beba8.firebasestorage.app",
+  messagingSenderId: "189673552883",
+  appId: "1:189673552883:web:e5633ce381280cc00ab086",
+  measurementId: "G-Q3X4ML34RD"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const scoresRef = ref(db, "scores");
+
+// === DOM Elements ===
+const lbPanel = document.getElementById("leaderboardPanel");
+const lbList = document.getElementById("leaderboardList");
+const lbToggle = document.getElementById("leaderboardToggle");
+const lbCurrentName = document.getElementById("lbCurrentName");
+const usernameModal = document.getElementById("usernameModal");
+const usernameInput = document.getElementById("usernameInput");
+const usernameConfirm = document.getElementById("usernameConfirm");
+const usernameRandom = document.getElementById("usernameRandom");
+
+lbToggle.addEventListener("click", ()=> lbPanel.classList.toggle("open"));
+
+// === Username handling ===
+const changeBtn = document.getElementById("changeUsernameBtn");
+if(changeBtn){
+  changeBtn.addEventListener("click", ()=>{
+    const newName = prompt("Enter a new 5-letter username:","").toUpperCase().trim();
+    if(!/^[A-Z]{5}$/.test(newName)){ alert("Must be exactly 5 letters."); return; }
+    nameExists(newName).then(exists => {
+      if(exists){ alert("That username is taken! Choose another."); return; }
+      // Remove old name entry from Firebase if desired
+      if(username && username !== newName){
+        set(ref(db, "scores/" + username), null);
+      }
+      username = newName;
+      localStorage.setItem("cg_username_5", newName);
+      lbCurrentName.textContent = newName;
+      pushScore();
+      alert("Username changed successfully to " + newName + "!");
+    });
+  });
+}
+let username = null;
+let lastPushedScore = 0;
+
+function randomName(){
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let name = "";
+  for(let i=0;i<5;i++) name += letters[Math.floor(Math.random()*letters.length)];
+  return name;
+}
+
+async function nameExists(name){
+  const snap = await get(child(ref(db), "scores/" + name));
+  return snap.exists();
+}
+
+function saveName(name){
+  username = name;
+  localStorage.setItem("cg_username_5", name);
+  lbCurrentName.textContent = name;
+  usernameModal.style.display = "none";
+  pushScore();
+}
+
+usernameConfirm.addEventListener("click", async ()=>{
+  const val = usernameInput.value.trim().toUpperCase();
+  if(!/^[A-Z]{5}$/.test(val)){ alert("Must be exactly 5 letters."); return; }
+  const exists = await nameExists(val);
+  if(exists){ alert("That username is taken. Choose another."); return; }
+  saveName(val);
+});
+
+usernameRandom.addEventListener("click", async ()=>{
+  let val;
+  do{ val = randomName(); }while(await nameExists(val));
+  saveName(val);
+});
+
+const saved = localStorage.getItem("cg_username_5");
+if(saved && /^[A-Z]{5}$/.test(saved)){
+  username = saved;
+  lbCurrentName.textContent = username;
+  usernameModal.style.display = "none";
+}
+
+// === Leaderboard Live Updates ===
+onValue(scoresRef, (snapshot)=>{
+  const data = snapshot.val() || {};
+  const arr = Object.values(data).map(v=>({name:v.name, score:Number(v.score)||0}));
+  arr.sort((a,b)=>b.score - a.score);
+  const top = arr.slice(0,5);
+  lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.score}</li>`).join("");
+});
+
+// === Push score ===
+function pushScore(){
+  if(!username || typeof score === "undefined") return;
+  const s = Number(score)||0;
+  if(s === lastPushedScore) return;
+  set(ref(db, "scores/" + username), { name: username, score: s });
+  lastPushedScore = s;
+}
+window.pushScoreToFirebase = pushScore;
+
+// Hook upgrade buttons
+function hookUpgradeButtons(){
+  const ids = ["upgradeDefaultBtn","buyGoonBtn","buyMidasBtn","buySwishBtn","buyMusicBtn","buyWhiteBtn"];
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.addEventListener("click", ()=> setTimeout(pushScore,800)); }
+  });
+}
+hookUpgradeButtons();
+const rehook = setInterval(hookUpgradeButtons,1500);
+setTimeout(()=>clearInterval(rehook),15000);
+
+// Auto-push every 10 s
+setInterval(pushScore, 10000);
+</script>
+<!-- ======= END Leaderboard & Username Integration ======= -->
+
 </body>
 </html>
 
