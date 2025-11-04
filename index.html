@@ -1393,6 +1393,7 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
 
 
 
+
 <!-- ======= BEGIN Leaderboard Token Upgrade ======= -->
 <style>
 @keyframes pulsePurple {
@@ -1427,6 +1428,7 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
   transform: translate(-50%,-50%) scale(0);
   opacity: 0; z-index: 99999;
   transition: all 1s ease;
+  pointer-events:none;
 }
 </style>
 
@@ -1436,60 +1438,139 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
   alt="token">
 
 <script>
-// ===== Leaderboard Token Logic =====
-let leaderboardTokens = Number(localStorage.getItem("leaderboardTokens")) || 0;
-window.leaderboardTokens = leaderboardTokens;
-let leaderboardTokenCost = Number(localStorage.getItem("leaderboardTokenCost")) || 1000;
+// ===== Leaderboard Token Logic (v12) =====
+// No localStorage. Cost is derived from account's leaderboardTokens: cost = 200 * (5 ^ tokensOwned)
+if(typeof window.leaderboardTokens === 'undefined') window.leaderboardTokens = 0;
 
-window.addEventListener("DOMContentLoaded", ()=>{
-  const upgrades = document.getElementById("upgradePanel");
-  const btn = document.createElement("button");
-  btn.id = "buyTokenBtn";
-  btn.textContent = "💜 Buy Leaderboard Token (" + leaderboardTokenCost + " tail wags)";
-  btn.title = "Scores in the game can get pretty high >-<\\nLeaderboard Tokens get exponentially more expensive, separating good players from great ones.";
-  upgrades.appendChild(btn);
-  btn.addEventListener("click", buyToken);
-});
+function getLeaderboardTokenCost(){
+  const owned = Number(window.leaderboardTokens) || 0;
+  // use BigInt safety for large exponents? keep Number for simplicity; cap to avoid overflow
+  const cost = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(200 * Math.pow(5, owned)));
+  return cost;
+}
 
 function buyToken(){
   if(typeof score === "undefined"){ alert("Game not loaded yet."); return; }
-  if(score < leaderboardTokenCost){ alert("Not enough tail wags!"); return; }
-  score -= leaderboardTokenCost;
+  const cost = getLeaderboardTokenCost();
+  if(score < cost){ alert("Not enough tail wags!"); return; }
+  // deduct
+  score -= cost;
   if (typeof updateDisplay === "function") updateDisplay();
-  leaderboardTokens++;
-  window.leaderboardTokens = leaderboardTokens;
-  leaderboardTokenCost *= 5;
-  localStorage.setItem("leaderboardTokens", leaderboardTokens);
-  localStorage.setItem("leaderboardTokenCost", leaderboardTokenCost);
-  animateTokenPurchase();
-  if (typeof window.savePlayerData === "function") window.savePlayerData();
+  // increment token count in global session state
+  window.leaderboardTokens = (Number(window.leaderboardTokens) || 0) + 1;
+  // persist to Firebase via savePlayerData if available
+  if (typeof window.savePlayerData === "function") {
+    try { window.savePlayerData(); } catch(e){ console.error("savePlayerData error", e); }
+  }
+  // ensure animation runs cleanly
+  setTimeout(()=>{ if(typeof animateTokenPurchase === "function") animateTokenPurchase(); }, 80);
+  // update button label
   const btn = document.getElementById("buyTokenBtn");
-  if(btn) btn.textContent = "💜 Buy Leaderboard Token (" + leaderboardTokenCost + " tail wags)";
+  if(btn) btn.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
 }
 
-// update leaderboard to show top 5 token counts
-const lbList = document.getElementById("leaderboardList");
-const lbTokenImgURL = "https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554";
-onValue(ref(db, "scores"), (snapshot)=>{
-  const data = snapshot.val() || {};
-  const arr = Object.values(data).map(v=>({name:v.name, score:Number(v.score)||0}));
-  arr.sort((a,b)=>b.score - a.score);
-  const top = arr.slice(0,5);
-  if(lbList){
-    lbList.innerHTML = top.map((p,i)=>
-      `<li style='display:flex;align-items:center;gap:6px;'>
-        <strong>${i+1}. ${p.name}</strong> — ${p.score}
-        <img src='${lbTokenImgURL}' style='width:1em;height:1em;vertical-align:middle;'>
-       </li>`).join("");
+// Create button inside upgrades panel after DOM ready and ensure it updates when player data loads
+window.addEventListener("DOMContentLoaded", ()=>{
+  function createButton(){
+    const upgrades = document.getElementById("upgradePanel");
+    if(!upgrades){
+      setTimeout(createButton, 300);
+      return;
+    }
+    if(document.getElementById("buyTokenBtn")) return;
+    const btn = document.createElement("button");
+    btn.id = "buyTokenBtn";
+    btn.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
+    btn.title = "Leaderboard Tokens get exponentially more expensive. Show your progress!";
+    upgrades.appendChild(btn);
+    btn.addEventListener("click", buyToken);
+    console.log("💜 Leaderboard token button created.");
   }
+  createButton();
 });
 
-setInterval(()=>{ try{ if(username) pushLeaderboardToken(); }catch(e){} }, 10000);
+// Update button label whenever player data is loaded into window (loadPlayerData calls updateDisplay)
+// We'll patch loadPlayerData elsewhere to update button text; but also add a periodic check to keep label correct
+setInterval(()=>{
+  const b = document.getElementById("buyTokenBtn");
+  if(b) b.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
+}, 1000);
 </script>
 <!-- ======= END Leaderboard Token Upgrade ======= -->
 
+
+
+<script>
+// ===== animateTokenPurchase (v16) =====
+window.animateTokenPurchase = function animateTokenPurchase(){
+  try{
+    const fade = document.getElementById("purpleFadeOverlay");
+    const tokenImg = document.getElementById("tokenFlyImg");
+    if(!fade || !tokenImg) return;
+
+    // Purple flash overlay
+    fade.style.opacity = "1";
+    setTimeout(()=>{ try{ fade.style.opacity = "0"; }catch(e){} }, 600);
+
+    // Screen shake effect
+    document.body.style.transition = "transform 0.05s";
+    let shakes = 0;
+    const shakeInt = setInterval(()=>{
+      document.body.style.transform = `translate(${(Math.random()-0.5)*14}px, ${(Math.random()-0.5)*14}px)`;
+      shakes++;
+      if(shakes>25){
+        clearInterval(shakeInt);
+        document.body.style.transform = "";
+      }
+    },35);
+
+    // Token pop from center
+    tokenImg.style.transition = "none";
+    tokenImg.style.opacity = "1";
+    tokenImg.style.left = "50%";
+    tokenImg.style.top = "50%";
+    tokenImg.style.transform = "translate(-50%,-50%) scale(1.3)";
+    setTimeout(()=>{ try{ tokenImg.style.transform = "translate(-50%,-50%) scale(1)"; }catch(e){} }, 120);
+
+    // Fly to top-left
+    const targetX = 40, targetY = 40;
+    setTimeout(()=>{
+      tokenImg.style.transition = "all 1.2s cubic-bezier(.2,.8,.2,1)";
+      tokenImg.style.left = targetX + "px";
+      tokenImg.style.top = targetY + "px";
+      tokenImg.style.transform = "scale(0.2)";
+      tokenImg.style.opacity = "0";
+    }, 500);
+
+    // Sparkles
+    setTimeout(()=>{
+      if(typeof spawnParticles === "function"){
+        spawnParticles(targetX, targetY, 20, "gold");
+      } else {
+        // fallback visual: small flash
+        const s = document.createElement('div');
+        s.style.position='fixed'; s.style.left=targetX+'px'; s.style.top=targetY+'px';
+        s.style.width='8px'; s.style.height='8px'; s.style.borderRadius='50%';
+        s.style.background='gold'; s.style.zIndex=99999; document.body.appendChild(s);
+        setTimeout(()=>s.remove(),600);
+      }
+    },1600);
+
+    // Reset token image after animation
+    setTimeout(()=>{
+      try{
+        tokenImg.style.transition = "";
+        tokenImg.style.left = "50%";
+        tokenImg.style.top = "50%";
+        tokenImg.style.opacity = "0";
+        tokenImg.style.transform = "translate(-50%,-50%) scale(0)";
+      }catch(e){}
+    }, 2200);
+  }catch(err){
+    console.error("animateTokenPurchase error", err);
+  }
+};
+</script>
+
 </body>
 </html>
-
-
-
