@@ -1438,6 +1438,7 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
 <script>
 // ===== Leaderboard Token Logic =====
 let leaderboardTokens = Number(localStorage.getItem("leaderboardTokens")) || 0;
+window.leaderboardTokens = leaderboardTokens;
 let leaderboardTokenCost = Number(localStorage.getItem("leaderboardTokenCost")) || 1000;
 
 window.addEventListener("DOMContentLoaded", ()=>{
@@ -1456,55 +1457,14 @@ function buyToken(){
   score -= leaderboardTokenCost;
   if (typeof updateDisplay === "function") updateDisplay();
   leaderboardTokens++;
+  window.leaderboardTokens = leaderboardTokens;
   leaderboardTokenCost *= 5;
   localStorage.setItem("leaderboardTokens", leaderboardTokens);
   localStorage.setItem("leaderboardTokenCost", leaderboardTokenCost);
   animateTokenPurchase();
-  pushLeaderboardToken();
+  if (typeof window.savePlayerData === "function") window.savePlayerData();
   const btn = document.getElementById("buyTokenBtn");
   if(btn) btn.textContent = "💜 Buy Leaderboard Token (" + leaderboardTokenCost + " tail wags)";
-}
-
-function animateTokenPurchase(){
-  const fade = document.getElementById("purpleFadeOverlay");
-  const tokenImg = document.getElementById("tokenFlyImg");
-  if(!fade || !tokenImg) return;
-  fade.style.opacity = "1";
-  setTimeout(()=>fade.style.opacity="0",600);
-  document.body.style.transition = "transform 0.05s";
-  let shakes = 0;
-  const shakeInt = setInterval(()=>{
-    document.body.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
-    shakes++;
-    if(shakes>20){
-      clearInterval(shakeInt);
-      document.body.style.transform = "";
-    }
-  },40);
-  const lbBtn = document.getElementById("leaderboardToggle");
-  const rect = lbBtn ? lbBtn.getBoundingClientRect() : {left:50, top:50};
-  tokenImg.style.opacity="1";
-  tokenImg.style.transform="translate(-50%,-50%) scale(1)";
-  setTimeout(()=>{
-    tokenImg.style.transition = "all 1s ease-in-out";
-    tokenImg.style.left = rect.left + 20 + "px";
-    tokenImg.style.top = rect.top + 20 + "px";
-    tokenImg.style.transform = "scale(0.2)";
-    tokenImg.style.opacity = "0";
-  },400);
-  setTimeout(()=>{
-    tokenImg.style.transition = "";
-    tokenImg.style.left="50%";
-    tokenImg.style.top="50%";
-  },2000);
-}
-
-async function pushLeaderboardToken(){
-  if(!username) return;
-  try{
-    await set(ref(db, "scores/" + username), { name: username, score: leaderboardTokens });
-    lastPushedScore = leaderboardTokens;
-  }catch(e){ console.error("pushLeaderboardToken error", e); }
 }
 
 // update leaderboard to show top 5 token counts
@@ -1530,5 +1490,6 @@ setInterval(()=>{ try{ if(username) pushLeaderboardToken(); }catch(e){} }, 10000
 
 </body>
 </html>
+
 
 
