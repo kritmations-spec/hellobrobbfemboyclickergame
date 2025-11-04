@@ -1076,8 +1076,10 @@ if(whiteCanEl) {
 }
 </script>
 
-<!-- ======= BEGIN Leaderboard & Username Integration ======= -->
+
+<!-- ======= BEGIN Leaderboard & Username Integration (FIXED) ======= -->
 <style>
+/* leaderboard styles */
 #leaderboardPanel {
   position: fixed;
   left: -420px;
@@ -1087,7 +1089,7 @@ if(whiteCanEl) {
   background: #fff;
   box-shadow: 8px 0 24px rgba(0,0,0,0.2);
   transition: left 0.3s ease;
-  z-index: 9999;
+  z-index: 99999;
   padding: 20px;
   overflow-y: auto;
   color: #000;
@@ -1096,13 +1098,15 @@ if(whiteCanEl) {
 #leaderboardPanel h2 { text-align: center; margin-top: 0; }
 #leaderboardList li { padding: 8px 0; border-bottom: 1px solid #ddd; list-style:none; }
 #usernameModal {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
   display: flex; align-items: center; justify-content: center;
-  z-index: 10000;
+  z-index: 100000;
+  pointer-events: auto;
 }
 #usernameBox {
   background: #fff; padding: 30px; border-radius: 15px;
-  text-align: center; max-width: 320px;
+  text-align: center; max-width: 340px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 #usernameBox input {
   font-size: 1.2rem; padding: 10px; width: 80%;
@@ -1111,22 +1115,24 @@ if(whiteCanEl) {
 #leaderboardToggle {
   position: fixed; left: 18px; top: 18px;
   width: 48px; height: 48px; border-radius: 12px;
-  z-index: 10001; font-size: 1.5rem; cursor: pointer;
+  z-index: 100001; font-size: 1.5rem; cursor: pointer;
 }
+#changeUsernameBtn { margin-top:10px; padding:6px 10px; }
 </style>
 
-<div id="leaderboardPanel">
+<div id="leaderboardPanel" aria-hidden="true">
   <h2>Top 5 Players</h2>
   <ul id="leaderboardList"></ul>
   <p style="text-align:center;">Your username: <strong id="lbCurrentName">---</strong></p>
+  <div style="text-align:center;"><button id="changeUsernameBtn">Change Username</button></div>
 </div>
 
-<button id="leaderboardToggle">🏆</button>
+<button id="leaderboardToggle" title="leaderboard">🏆</button>
 
-<div id="usernameModal">
+<div id="usernameModal" aria-modal="true" role="dialog">
   <div id="usernameBox">
-    <h2>Enter your 5‑letter name</h2>
-    <input id="usernameInput" maxlength="5" placeholder="ABCDE">
+    <h2 style="margin:0 0 10px 0;">Enter your 5-letter name</h2>
+    <input id="usernameInput" maxlength="5" placeholder="ABCDE" aria-label="username input">
     <div style="margin-top:10px;">
       <button id="usernameConfirm">Confirm</button>
       <button id="usernameRandom">Random</button>
@@ -1136,10 +1142,11 @@ if(whiteCanEl) {
 </div>
 
 <script type="module">
+// Fixed leaderboard integration
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
-import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
 
-// === Firebase Config (yours) ===
+// Firebase config (kept from your project)
 const firebaseConfig = {
   apiKey: "AIzaSyDh85Pd2VBdDVGrLCGr7sJAQSSClivAwO8",
   authDomain: "clickergame-beba8.firebaseapp.com",
@@ -1154,7 +1161,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const scoresRef = ref(db, "scores");
 
-// === DOM Elements ===
+// DOM
 const lbPanel = document.getElementById("leaderboardPanel");
 const lbList = document.getElementById("leaderboardList");
 const lbToggle = document.getElementById("leaderboardToggle");
@@ -1163,55 +1170,102 @@ const usernameModal = document.getElementById("usernameModal");
 const usernameInput = document.getElementById("usernameInput");
 const usernameConfirm = document.getElementById("usernameConfirm");
 const usernameRandom = document.getElementById("usernameRandom");
+const changeUsernameBtn = document.getElementById("changeUsernameBtn");
+const infoModalEl = document.getElementById("infoModal");
 
 lbToggle.addEventListener("click", ()=> lbPanel.classList.toggle("open"));
 
-// === Username handling ===
-let username = null;
-let lastPushedScore = 0;
+// helper to check existence
+async function nameExists(name){
+  try{
+    const snap = await get(ref(db, "scores/" + name));
+    return snap && snap.exists();
+  }catch(e){
+    console.error("nameExists error", e);
+    return false;
+  }
+}
 
 function randomName(){
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let name = "";
-  for(let i=0;i<5;i++) name += letters[Math.floor(Math.random()*letters.length)];
-  return name;
+  let out = "";
+  for(let i=0;i<5;i++) out += letters[Math.floor(Math.random()*letters.length)];
+  return out;
 }
 
-async function nameExists(name){
-  const snap = await get(child(ref(db), "scores/" + name));
-  return snap.exists();
+let username = null;
+let lastPushedScore = null;
+let prevInfoDisplay = null;
+
+// Show username modal and temporarily hide intro modal to avoid click capture
+function showUsernameModal(){
+  if(infoModalEl){
+    prevInfoDisplay = infoModalEl.style.display || "";
+    infoModalEl.style.display = "none";
+  }
+  usernameModal.style.display = "flex";
+  usernameInput.focus();
 }
 
-function saveName(name){
+// Restore intro modal if it was showing before (only if not dismissed)
+function restoreInfoModal(){
+  if(infoModalEl && prevInfoDisplay !== null){
+    infoModalEl.style.display = prevInfoDisplay;
+    prevInfoDisplay = null;
+  }
+}
+
+// Save username locally and push initial score
+async function saveName(name){
   username = name;
   localStorage.setItem("cg_username_5", name);
   lbCurrentName.textContent = name;
   usernameModal.style.display = "none";
+  restoreInfoModal();
+  // push initial score (if available)
   pushScore();
 }
 
+// Confirm handler
 usernameConfirm.addEventListener("click", async ()=>{
-  const val = usernameInput.value.trim().toUpperCase();
-  if(!/^[A-Z]{5}$/.test(val)){ alert("Must be exactly 5 letters."); return; }
+  const val = (usernameInput.value||"").trim().toUpperCase();
+  if(!/^[A-Z]{5}$/.test(val)){ alert("Must be exactly 5 letters (A-Z)."); return; }
   const exists = await nameExists(val);
   if(exists){ alert("That username is taken. Choose another."); return; }
-  saveName(val);
+  await saveName(val);
 });
 
+// Random handler: pick a random unused name (limited attempts)
 usernameRandom.addEventListener("click", async ()=>{
-  let val;
-  do{ val = randomName(); }while(await nameExists(val));
-  saveName(val);
+  for(let i=0;i<150;i++){
+    const candidate = randomName();
+    const exists = await nameExists(candidate);
+    if(!exists){ await saveName(candidate); return; }
+  }
+  alert("Couldn't generate a free random name right now. Try a manual name.");
 });
 
-const saved = localStorage.getItem("cg_username_5");
-if(saved && /^[A-Z]{5}$/.test(saved)){
-  username = saved;
-  lbCurrentName.textContent = username;
-  usernameModal.style.display = "none";
-}
+// If saved username exists in localStorage, try to reuse it. If collision (someone else took it meanwhile), force prompt.
+(async function initUsername(){
+  const saved = localStorage.getItem("cg_username_5");
+  if(saved && /^[A-Z]{5}$/.test(saved)){
+    const taken = await nameExists(saved);
+    if(taken){
+      // If taken by someone else, prompt user to choose different name
+      showUsernameModal();
+    } else {
+      username = saved;
+      lbCurrentName.textContent = username;
+      // ensure leaderboard reflects this user
+      pushScore();
+    }
+  } else {
+    // show modal
+    showUsernameModal();
+  }
+})();
 
-// === Leaderboard Live Updates ===
+// Leaderboard live updates
 onValue(scoresRef, (snapshot)=>{
   const data = snapshot.val() || {};
   const arr = Object.values(data).map(v=>({name:v.name, score:Number(v.score)||0}));
@@ -1220,32 +1274,64 @@ onValue(scoresRef, (snapshot)=>{
   lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.score}</li>`).join("");
 });
 
-// === Push score ===
-function pushScore(){
-  if(!username || typeof score === "undefined") return;
-  const s = Number(score)||0;
-  if(s === lastPushedScore) return;
-  set(ref(db, "scores/" + username), { name: username, score: s });
-  lastPushedScore = s;
+// Push score function (only writes under username key)
+async function pushScore(){
+  if(!username) return;
+  if(typeof score === "undefined") return;
+  const s = Number(score) || 0;
+  // only push if changed (or initially null)
+  if(lastPushedScore !== null && s === lastPushedScore) return;
+  try{
+    await set(ref(db, "scores/" + username), { name: username, score: s });
+    lastPushedScore = s;
+  }catch(e){
+    console.error("pushScore error", e);
+  }
 }
 window.pushScoreToFirebase = pushScore;
 
-// Hook upgrade buttons
+// Hook upgrade buttons to push after buy
 function hookUpgradeButtons(){
   const ids = ["upgradeDefaultBtn","buyGoonBtn","buyMidasBtn","buySwishBtn","buyMusicBtn","buyWhiteBtn"];
   ids.forEach(id=>{
     const el = document.getElementById(id);
-    if(el){ el.addEventListener("click", ()=> setTimeout(pushScore,800)); }
+    if(el){
+      el.addEventListener("click", ()=> setTimeout(pushScore, 800));
+    }
   });
 }
 hookUpgradeButtons();
 const rehook = setInterval(hookUpgradeButtons,1500);
 setTimeout(()=>clearInterval(rehook),15000);
 
-// Auto-push every 10 s
-setInterval(pushScore, 10000);
+// Auto-push every 10s if changed
+setInterval(()=>{ try{ if(username) pushScore(); }catch(e){} }, 10000);
+
+// Change username button logic: remove old entry and set new one (if free)
+if(changeUsernameBtn){
+  changeUsernameBtn.addEventListener("click", async ()=>{
+    const newName = prompt("Enter a new 5-letter username:","").toUpperCase().trim();
+    if(!newName || !/^[A-Z]{5}$/.test(newName)){ alert("Must be exactly 5 letters (A-Z)."); return; }
+    if(newName === username){ alert("That's already your current name."); return; }
+    const exists = await nameExists(newName);
+    if(exists){ alert("That username is taken. Choose another."); return; }
+    // delete old username record in DB so it becomes free
+    try{
+      if(username){
+        await set(ref(db, "scores/" + username), null);
+      }
+      // save new
+      await saveName(newName);
+      alert("Username changed to " + newName);
+    }catch(e){
+      console.error("change username error", e);
+      alert("Failed to change username — try again.");
+    }
+  });
+}
 </script>
-<!-- ======= END Leaderboard & Username Integration ======= -->
+<!-- ======= END Leaderboard & Username Integration (FIXED) ======= -->
+
 
 </body>
 </html>
