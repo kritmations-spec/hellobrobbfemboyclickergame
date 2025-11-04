@@ -1279,7 +1279,8 @@ async function pushLeaderboardTokens(){
     if(rec){
       if(rec.pin === savedPin){
         username = savedName; pin = savedPin;
-        usernameModal.style.display = "none";
+        // login modal stays visible until manual login
+
         loadPlayerData(rec);
         if(typeof window.pushScoreToFirebase === "function") window.pushScoreToFirebase();
         return;
@@ -1453,6 +1454,7 @@ function buyToken(){
   if(typeof score === "undefined"){ alert("Game not loaded yet."); return; }
   if(score < leaderboardTokenCost){ alert("Not enough tail wags!"); return; }
   score -= leaderboardTokenCost;
+  if (typeof updateDisplay === "function") updateDisplay();
   leaderboardTokens++;
   leaderboardTokenCost *= 5;
   localStorage.setItem("leaderboardTokens", leaderboardTokens);
