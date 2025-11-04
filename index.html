@@ -1129,24 +1129,27 @@ if(whiteCanEl) {
 
 <button id="leaderboardToggle" title="leaderboard">🏆</button>
 
+
 <div id="usernameModal" aria-modal="true" role="dialog">
   <div id="usernameBox">
-    <h2 style="margin:0 0 10px 0;">Enter your 5-letter name</h2>
-    <input id="usernameInput" maxlength="5" placeholder="ABCDE" aria-label="username input">
+    <h2 style="margin:0 0 8px 0;">Enter your 5-letter name & 6-digit PIN</h2>
+    <input id="usernameInput" maxlength="5" placeholder="ABCDE" aria-label="username input" style="display:block;margin:8px auto;font-size:1.1rem;padding:8px;text-transform:uppercase;text-align:center;width:80%" />
+    <input id="pinInput" maxlength="6" placeholder="123456" aria-label="pin input" style="display:block;margin:8px auto;font-size:1.1rem;padding:8px;text-align:center;width:80%" />
     <div style="margin-top:10px;">
       <button id="usernameConfirm">Confirm</button>
       <button id="usernameRandom">Random</button>
     </div>
-    <p style="margin-top:10px;color:#666;font-size:0.9rem;">Names are unique and saved per browser</p>
+    <p style="margin-top:10px;color:#666;font-size:0.9rem;text-align:center;">If the name exists, the PIN will log you into it. If not, a new account will be created with that PIN.</p>
   </div>
 </div>
 
+
+
 <script type="module">
-// Fixed leaderboard integration
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
 
-// Firebase config (kept from your project)
+// Firebase config (kept)
 const firebaseConfig = {
   apiKey: "AIzaSyDh85Pd2VBdDVGrLCGr7sJAQSSClivAwO8",
   authDomain: "clickergame-beba8.firebaseapp.com",
@@ -1159,15 +1162,14 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const scoresRef = ref(db, "scores");
 
-// DOM
+// DOM refs
 const lbPanel = document.getElementById("leaderboardPanel");
 const lbList = document.getElementById("leaderboardList");
 const lbToggle = document.getElementById("leaderboardToggle");
-const lbCurrentName = document.getElementById("lbCurrentName");
 const usernameModal = document.getElementById("usernameModal");
 const usernameInput = document.getElementById("usernameInput");
+const pinInput = document.getElementById("pinInput");
 const usernameConfirm = document.getElementById("usernameConfirm");
 const usernameRandom = document.getElementById("usernameRandom");
 const changeUsernameBtn = document.getElementById("changeUsernameBtn");
@@ -1175,15 +1177,12 @@ const infoModalEl = document.getElementById("infoModal");
 
 lbToggle.addEventListener("click", ()=> lbPanel.classList.toggle("open"));
 
-// helper to check existence
-async function nameExists(name){
+// helpers
+async function readUserRecord(name){
   try{
     const snap = await get(ref(db, "scores/" + name));
-    return snap && snap.exists();
-  }catch(e){
-    console.error("nameExists error", e);
-    return false;
-  }
+    return snap && snap.exists() ? snap.val() : null;
+  }catch(e){ console.error("readUserRecord error", e); return null; }
 }
 
 function randomName(){
@@ -1193,145 +1192,339 @@ function randomName(){
   return out;
 }
 
+// global session state for this module
 let username = null;
-let lastPushedScore = null;
-let prevInfoDisplay = null;
+let pin = null;
+let lastSaved = null;
 
-// Show username modal and temporarily hide intro modal to avoid click capture
-function showUsernameModal(){
-  if(infoModalEl){
-    prevInfoDisplay = infoModalEl.style.display || "";
-    infoModalEl.style.display = "none";
+// default template for a new user
+function defaultPlayerObject(name, pinCode){
+  return {
+    name: name,
+    pin: pinCode,
+    score: 0,
+    leaderboardTokens: 0,
+    baseCombo: 1,
+    swishLevel: 0,
+    whiteLevel: 0,
+    midasChancePercent: 0,
+    musicOwnedCount: 0
+  };
+}
+
+// apply loaded data into the game's global variables
+function loadPlayerData(obj){
+  if(!obj) return;
+  // these global variables exist in the main script; assign them
+  try{
+    window.score = Number(obj.score) || 0;
+    window.leaderboardTokens = Number(obj.leaderboardTokens) || 0;
+    window.baseCombo = Number(obj.baseCombo) || 1;
+    window.swishLevel = Number(obj.swishLevel) || 0;
+    window.whiteLevel = Number(obj.whiteLevel) || 0;
+    window.midasChancePercent = Number(obj.midasChancePercent) || 0;
+    window.musicOwnedCount = Number(obj.musicOwnedCount) || 0;
+    // ensure any dependent costs/locks are recalculated by the game's updateDisplay()
+    if(typeof window.updateDisplay === "function") window.updateDisplay();
+    // ensure white can visibility and size update if needed
+    if(window.ensureWhiteCan && window.whiteLevel > 0) window.ensureWhiteCan();
+  }catch(e){ console.error("loadPlayerData error", e); }
+}
+
+// save full player object to Firebase under their username
+async function savePlayerData(){
+  if(!username) return;
+  try{
+    const payload = {
+      name: username,
+      pin: pin,
+      score: Number(window.score) || 0,
+      leaderboardTokens: Number(window.leaderboardTokens) || 0,
+      baseCombo: Number(window.baseCombo) || 1,
+      swishLevel: Number(window.swishLevel) || 0,
+      whiteLevel: Number(window.whiteLevel) || 0,
+      midasChancePercent: Number(window.midasChancePercent) || 0,
+      musicOwnedCount: Number(window.musicOwnedCount) || 0
+    };
+    await set(ref(db, "scores/" + username), payload);
+    lastSaved = Date.now();
+  }catch(e){ console.error("savePlayerData error", e); }
+}
+
+// push token count only used by older code; keep for compatibility
+async function pushLeaderboardTokens(){
+  if(!username) return;
+  try{
+    await set(ref(db, "scores/" + username), {
+      name: username,
+      pin: pin,
+      score: Number(window.score)||0,
+      leaderboardTokens: Number(window.leaderboardTokens)||0,
+      baseCombo: Number(window.baseCombo)||1,
+      swishLevel: Number(window.swishLevel)||0,
+      whiteLevel: Number(window.whiteLevel)||0,
+      midasChancePercent: Number(window.midasChancePercent)||0,
+      musicOwnedCount: Number(window.musicOwnedCount)||0
+    });
+  }catch(e){ console.error("pushLeaderboardTokens error", e); }
+}
+
+// Init: if saved username+pin in localStorage, try to auto-login
+(async function initUsername(){
+  const savedName = localStorage.getItem("cg_username_5");
+  const savedPin = localStorage.getItem("cg_pin_6");
+  if(savedName && savedPin){
+    // try login with saved creds
+    const rec = await readUserRecord(savedName);
+    if(rec){
+      if(rec.pin === savedPin){
+        username = savedName; pin = savedPin;
+        usernameModal.style.display = "none";
+        loadPlayerData(rec);
+        if(typeof window.pushScoreToFirebase === "function") window.pushScoreToFirebase();
+        return;
+      } else {
+        // saved creds invalid (someone changed pin) - clear and prompt
+        localStorage.removeItem("cg_username_5");
+        localStorage.removeItem("cg_pin_6");
+      }
+    } else {
+      // record doesn't exist - create new
+      username = savedName; pin = savedPin;
+      const obj = defaultPlayerObject(username, pin);
+      await set(ref(db, "scores/" + username), obj);
+      usernameModal.style.display = "none";
+      loadPlayerData(obj);
+      return;
+    }
   }
+  // otherwise show modal
   usernameModal.style.display = "flex";
   usernameInput.focus();
-}
-
-// Restore intro modal if it was showing before (only if not dismissed)
-function restoreInfoModal(){
-  if(infoModalEl && prevInfoDisplay !== null){
-    infoModalEl.style.display = prevInfoDisplay;
-    prevInfoDisplay = null;
-  }
-}
-
-// Save username locally and push initial score
-async function saveName(name){
-  username = name;
-  localStorage.setItem("cg_username_5", name);
-  lbCurrentName.textContent = name;
-  usernameModal.style.display = "none";
-  restoreInfoModal();
-  // push initial score (if available)
-  pushScore();
-}
-
-// Confirm handler
-usernameConfirm.addEventListener("click", async ()=>{
-  const val = (usernameInput.value||"").trim().toUpperCase();
-  if(!/^[A-Z]{5}$/.test(val)){ alert("Must be exactly 5 letters (A-Z)."); return; }
-  const exists = await nameExists(val);
-  if(exists){ alert("That username is taken. Choose another."); return; }
-  await saveName(val);
-});
-
-// Random handler: pick a random unused name (limited attempts)
-usernameRandom.addEventListener("click", async ()=>{
-  for(let i=0;i<150;i++){
-    const candidate = randomName();
-    const exists = await nameExists(candidate);
-    if(!exists){ await saveName(candidate); return; }
-  }
-  alert("Couldn't generate a free random name right now. Try a manual name.");
-});
-
-// If saved username exists in localStorage, try to reuse it. If collision (someone else took it meanwhile), force prompt.
-(async function initUsername(){
-  const saved = localStorage.getItem("cg_username_5");
-  if(saved && /^[A-Z]{5}$/.test(saved)){
-    const taken = await nameExists(saved);
-    if(taken){
-      // If taken by someone else, prompt user to choose different name
-      showUsernameModal();
-    } else {
-      username = saved;
-      lbCurrentName.textContent = username;
-      // ensure leaderboard reflects this user
-      pushScore();
-    }
-  } else {
-    // show modal
-    showUsernameModal();
-  }
 })();
 
-// Leaderboard live updates
-onValue(scoresRef, (snapshot)=>{
+// Confirm handler: create or login based on existence & pin
+usernameConfirm.addEventListener("click", async ()=>{
+  const rawName = (usernameInput.value||"").trim().toUpperCase();
+  const rawPin = (pinInput.value||"").trim();
+  if(!/^[A-Z]{5}$/.test(rawName)){ alert("Must be exactly 5 letters (A-Z) for username."); return; }
+  if(!/^[A-Za-z0-9]{6}$/.test(rawPin)){ alert("PIN must be exactly 6 letters/numbers."); return; }
+  const existing = await readUserRecord(rawName);
+  if(existing){
+    if(existing.pin === rawPin){
+      // correct pin -> login
+      username = rawName; pin = rawPin;
+      localStorage.setItem("cg_username_5", username);
+      localStorage.setItem("cg_pin_6", pin);
+      usernameModal.style.display = "none";
+      loadPlayerData(existing);
+      // immediate save to ensure latest fields synced
+      savePlayerData();
+      document.getElementById("lbCurrentName").textContent = username;
+      alert("Welcome back, " + username + "!");
+    } else {
+      alert("Incorrect PIN for that username.");
+    }
+  } else {
+    // create new account
+    username = rawName; pin = rawPin;
+    const obj = defaultPlayerObject(username, pin);
+    await set(ref(db, "scores/" + username), obj);
+    localStorage.setItem("cg_username_5", username);
+    localStorage.setItem("cg_pin_6", pin);
+    usernameModal.style.display = "none";
+    loadPlayerData(obj);
+    document.getElementById("lbCurrentName").textContent = username;
+      alert("Account created: " + username);
+  }
+});
+
+// Random name fill (doesn't set pin)
+usernameRandom.addEventListener("click", async ()=>{
+  const candidate = randomName();
+  usernameInput.value = candidate;
+  pinInput.focus();
+});
+
+// change username button (requires entering current pin again)
+if(changeUsernameBtn){
+  changeUsernameBtn.addEventListener("click", async ()=>{
+    if(!username){ alert("You must be logged in to change your username."); return; }
+    const newNameRaw = prompt("Enter a new 5-letter username:","").toUpperCase().trim();
+    if(!newNameRaw || !/^[A-Z]{5}$/.test(newNameRaw)){ alert("Must be exactly 5 letters (A-Z)."); return; }
+    if(newNameRaw === username){ alert("That's already your current name."); return; }
+    const exists = await readUserRecord(newNameRaw);
+    if(exists){ alert("That username is taken. Choose another."); return; }
+    try{
+      // copy current data to new key, then remove old key
+      const dataSnap = await readUserRecord(username);
+      if(!dataSnap){ alert("Current account missing."); return; }
+      dataSnap.name = newNameRaw;
+      await set(ref(db, "scores/" + newNameRaw), dataSnap);
+      await set(ref(db, "scores/" + username), null);
+      // update local session
+      username = newNameRaw;
+      localStorage.setItem("cg_username_5", username);
+      alert("Username changed to " + username);
+    }catch(e){ console.error("change username error", e); alert("Failed to change username."); }
+  });
+}
+
+// Leaderboard live updates (sorted by leaderboardTokens)
+onValue(ref(db, "scores"), (snapshot)=>{
+  const data = snapshot.val() || {};
+  const arr = Object.values(data).map(v=>({name:v.name, tokens:Number(v.leaderboardTokens)||0}));
+  arr.sort((a,b)=>b.tokens - a.tokens);
+  const top = arr.slice(0,5);
+  lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.tokens} <img src='https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554' style='width:1em;height:1em;vertical-align:middle;'></li>`).join("");
+});
+
+// Auto-save every 10s if logged in
+setInterval(()=>{ try{ if(username) savePlayerData(); }catch(e){} }, 10000);
+
+// Expose save functions for other scripts (compat)
+window.savePlayerData = savePlayerData;
+window.pushLeaderboardTokens = pushLeaderboardTokens;
+
+</script>
+
+<!-- ======= END Leaderboard & Username Integration (FIXED) ======= -->
+
+
+
+<!-- ======= BEGIN Leaderboard Token Upgrade ======= -->
+<style>
+@keyframes pulsePurple {
+  0% { box-shadow: 0 0 10px 4px rgba(192,0,255,0.6); }
+  50% { box-shadow: 0 0 25px 10px rgba(192,0,255,0.8); }
+  100% { box-shadow: 0 0 10px 4px rgba(192,0,255,0.6); }
+}
+#buyTokenBtn {
+  background: linear-gradient(145deg, #7b00ff, #c000ff);
+  color: #fff;
+  font-weight: bold;
+  border: 3px solid #d47aff;
+  border-radius: 12px;
+  width: 95%;
+  margin-top: 20px;
+  padding: 16px;
+  font-size: 1.2rem;
+  animation: pulsePurple 2s infinite;
+  transition: transform 0.1s ease;
+}
+#buyTokenBtn:hover { transform: scale(1.05); }
+#purpleFadeOverlay {
+  position: fixed; inset: 0;
+  background: rgba(160, 0, 255, 0.3);
+  opacity: 0; pointer-events: none;
+  z-index: 99998;
+  transition: opacity 0.4s ease;
+}
+#tokenFlyImg {
+  position: fixed; width: 48px; height: 48px;
+  left: 50%; top: 50%;
+  transform: translate(-50%,-50%) scale(0);
+  opacity: 0; z-index: 99999;
+  transition: all 1s ease;
+}
+</style>
+
+<div id="purpleFadeOverlay"></div>
+<img id="tokenFlyImg"
+  src="https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554"
+  alt="token">
+
+<script>
+// ===== Leaderboard Token Logic =====
+let leaderboardTokens = Number(localStorage.getItem("leaderboardTokens")) || 0;
+let leaderboardTokenCost = Number(localStorage.getItem("leaderboardTokenCost")) || 1000;
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  const upgrades = document.getElementById("upgradePanel");
+  const btn = document.createElement("button");
+  btn.id = "buyTokenBtn";
+  btn.textContent = "💜 Buy Leaderboard Token (" + leaderboardTokenCost + " tail wags)";
+  btn.title = "Scores in the game can get pretty high >-<\\nLeaderboard Tokens get exponentially more expensive, separating good players from great ones.";
+  upgrades.appendChild(btn);
+  btn.addEventListener("click", buyToken);
+});
+
+function buyToken(){
+  if(typeof score === "undefined"){ alert("Game not loaded yet."); return; }
+  if(score < leaderboardTokenCost){ alert("Not enough tail wags!"); return; }
+  score -= leaderboardTokenCost;
+  leaderboardTokens++;
+  leaderboardTokenCost *= 5;
+  localStorage.setItem("leaderboardTokens", leaderboardTokens);
+  localStorage.setItem("leaderboardTokenCost", leaderboardTokenCost);
+  animateTokenPurchase();
+  pushLeaderboardToken();
+  const btn = document.getElementById("buyTokenBtn");
+  if(btn) btn.textContent = "💜 Buy Leaderboard Token (" + leaderboardTokenCost + " tail wags)";
+}
+
+function animateTokenPurchase(){
+  const fade = document.getElementById("purpleFadeOverlay");
+  const tokenImg = document.getElementById("tokenFlyImg");
+  if(!fade || !tokenImg) return;
+  fade.style.opacity = "1";
+  setTimeout(()=>fade.style.opacity="0",600);
+  document.body.style.transition = "transform 0.05s";
+  let shakes = 0;
+  const shakeInt = setInterval(()=>{
+    document.body.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
+    shakes++;
+    if(shakes>20){
+      clearInterval(shakeInt);
+      document.body.style.transform = "";
+    }
+  },40);
+  const lbBtn = document.getElementById("leaderboardToggle");
+  const rect = lbBtn ? lbBtn.getBoundingClientRect() : {left:50, top:50};
+  tokenImg.style.opacity="1";
+  tokenImg.style.transform="translate(-50%,-50%) scale(1)";
+  setTimeout(()=>{
+    tokenImg.style.transition = "all 1s ease-in-out";
+    tokenImg.style.left = rect.left + 20 + "px";
+    tokenImg.style.top = rect.top + 20 + "px";
+    tokenImg.style.transform = "scale(0.2)";
+    tokenImg.style.opacity = "0";
+  },400);
+  setTimeout(()=>{
+    tokenImg.style.transition = "";
+    tokenImg.style.left="50%";
+    tokenImg.style.top="50%";
+  },2000);
+}
+
+async function pushLeaderboardToken(){
+  if(!username) return;
+  try{
+    await set(ref(db, "scores/" + username), { name: username, score: leaderboardTokens });
+    lastPushedScore = leaderboardTokens;
+  }catch(e){ console.error("pushLeaderboardToken error", e); }
+}
+
+// update leaderboard to show top 5 token counts
+const lbList = document.getElementById("leaderboardList");
+const lbTokenImgURL = "https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554";
+onValue(ref(db, "scores"), (snapshot)=>{
   const data = snapshot.val() || {};
   const arr = Object.values(data).map(v=>({name:v.name, score:Number(v.score)||0}));
   arr.sort((a,b)=>b.score - a.score);
   const top = arr.slice(0,5);
-  lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.score}</li>`).join("");
+  if(lbList){
+    lbList.innerHTML = top.map((p,i)=>
+      `<li style='display:flex;align-items:center;gap:6px;'>
+        <strong>${i+1}. ${p.name}</strong> — ${p.score}
+        <img src='${lbTokenImgURL}' style='width:1em;height:1em;vertical-align:middle;'>
+       </li>`).join("");
+  }
 });
 
-// Push score function (only writes under username key)
-async function pushScore(){
-  if(!username) return;
-  if(typeof score === "undefined") return;
-  const s = Number(score) || 0;
-  // only push if changed (or initially null)
-  if(lastPushedScore !== null && s === lastPushedScore) return;
-  try{
-    await set(ref(db, "scores/" + username), { name: username, score: s });
-    lastPushedScore = s;
-  }catch(e){
-    console.error("pushScore error", e);
-  }
-}
-window.pushScoreToFirebase = pushScore;
-
-// Hook upgrade buttons to push after buy
-function hookUpgradeButtons(){
-  const ids = ["upgradeDefaultBtn","buyGoonBtn","buyMidasBtn","buySwishBtn","buyMusicBtn","buyWhiteBtn"];
-  ids.forEach(id=>{
-    const el = document.getElementById(id);
-    if(el){
-      el.addEventListener("click", ()=> setTimeout(pushScore, 800));
-    }
-  });
-}
-hookUpgradeButtons();
-const rehook = setInterval(hookUpgradeButtons,1500);
-setTimeout(()=>clearInterval(rehook),15000);
-
-// Auto-push every 10s if changed
-setInterval(()=>{ try{ if(username) pushScore(); }catch(e){} }, 10000);
-
-// Change username button logic: remove old entry and set new one (if free)
-if(changeUsernameBtn){
-  changeUsernameBtn.addEventListener("click", async ()=>{
-    const newName = prompt("Enter a new 5-letter username:","").toUpperCase().trim();
-    if(!newName || !/^[A-Z]{5}$/.test(newName)){ alert("Must be exactly 5 letters (A-Z)."); return; }
-    if(newName === username){ alert("That's already your current name."); return; }
-    const exists = await nameExists(newName);
-    if(exists){ alert("That username is taken. Choose another."); return; }
-    // delete old username record in DB so it becomes free
-    try{
-      if(username){
-        await set(ref(db, "scores/" + username), null);
-      }
-      // save new
-      await saveName(newName);
-      alert("Username changed to " + newName);
-    }catch(e){
-      console.error("change username error", e);
-      alert("Failed to change username — try again.");
-    }
-  });
-}
+setInterval(()=>{ try{ if(username) pushLeaderboardToken(); }catch(e){} }, 10000);
 </script>
-<!-- ======= END Leaderboard & Username Integration (FIXED) ======= -->
-
+<!-- ======= END Leaderboard Token Upgrade ======= -->
 
 </body>
 </html>
