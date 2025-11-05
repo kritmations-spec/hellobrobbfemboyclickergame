@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>hellobrobb femboy clicker game</title>
+<title>beetle beater</title>
 <style>
 /* ---------- base layout ---------- */
 * { box-sizing: border-box; user-select: none; -webkit-user-select: none; -ms-user-select: none; }
-html,body{height:100%}
+html,body {
+  /* background image layer will sit behind all content */
+height:100%}
 body {
   font-family: "Poppins", sans-serif;
-  background: linear-gradient(135deg, #ffc0cb, #add8e6);
+  background: linear-gradient(135deg, #ffd7a6, #d2a679);
   height: 100vh;
   margin: 0;
   overflow: hidden;
@@ -21,6 +23,25 @@ body {
   color: #222;
   position: relative;
   transition: background 0.5s ease;
+  }
+
+/* full-page background image */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url('background.png');
+  background-size: cover;
+  background-position: center center;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ensure main content stacks above background */
+#upgradePanel, #leaderboardPanel, #usernameModal, #infoModal, #raveModal { z-index: 60; }
+
+
   text-transform: lowercase;
   padding-top: 50px;
 }
@@ -32,7 +53,7 @@ h1 { font-size: 2.5rem; margin-bottom: 20px; z-index: 2; text-align: center; }
 
 /* buttons */
 button {
-  background-color: #ff6b6b;
+  background-color: #ff8c42;
   color: white;
   border: none;
   border-radius: 1rem;
@@ -45,7 +66,7 @@ button {
   text-transform: lowercase;
   margin: 10px;
 }
-button:hover { background-color: #ff8787; }
+button:hover { background-color: #ff9b62; }
 #panelToggle {
   position: fixed;
   right: 18px;
@@ -67,11 +88,12 @@ button:hover { background-color: #ff8787; }
   top: 0;
   height: 100%;
   width: 420px;
-  background: linear-gradient(180deg,#fff5fb,#e8f9ff);
+  background: linear-gradient(180deg,#fff8f2,#f3e6d9);
   box-shadow: -8px 0 24px rgba(0,0,0,0.15);
   z-index: 55;
   padding: 20px;
   transition: right 0.32s cubic-bezier(.2,.9,.2,1);
+  opacity: 0.5;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -83,7 +105,7 @@ button:hover { background-color: #ff8787; }
 
 /* upgrade rows */
 .upgrade-row {
-  background: linear-gradient(180deg,#ffeef3,#f0fbff);
+  background: linear-gradient(180deg,#fff4ea,#f7efe6);
   border-radius: 12px;
   padding: 12px;
   display:flex;
@@ -91,14 +113,14 @@ button:hover { background-color: #ff8787; }
   gap:12px;
   box-shadow: 0 6px 14px rgba(0,0,0,0.06);
 }
-.upgrade-row img { width:64px; height:64px; border-radius:8px; object-fit:cover; pointer-events:none; user-drag:none; -webkit-user-drag:none; }
+.upgrade-row img { width:64px; height:64px; object-fit:cover; pointer-events:none; user-drag:none; -webkit-user-drag:none; background: transparent; border: none; }
 .upgrade-info { flex:1; display:flex; flex-direction:column; gap:6px; }
 .upgrade-info .title { font-weight:700; font-size:1rem; }
 .upgrade-info .desc { font-size:0.9rem; color:#444; }
 .upgrade-cost { font-weight:900; font-size:1rem; text-align:right; }
 
 /* popup images */
-.popup {
+.popup { pointer-events: auto;  z-index: 90; 
   position: absolute;
   width: 100px;
   height: 100px;
@@ -107,34 +129,20 @@ button:hover { background-color: #ff8787; }
   transition: opacity 0.28s ease-out, transform 0.28s;
   user-select: none;
   -webkit-user-drag: none;
-  border-radius: 14px;
-  border: 3px solid rgba(255,255,255,0.9);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.16);
-  background: #fff;
+  border-radius: 0; border: none; box-shadow: none; background: transparent;
   overflow:hidden;
   z-index:30;
 }
 .popup.show { opacity: 1; transform: scale(1); }
-.popup img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+.popup img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; background: transparent; border: none; }
 
 /* gold styling for golden popup (visual only) */
-.popup.golden { border-color: rgba(255,223,0,0.95); box-shadow: 0 10px 30px rgba(255,200,40,0.25); filter: drop-shadow(0 8px 20px rgba(255,200,40,0.18)); }
+.popup.golden { border: none; box-shadow: none; filter: none; }
 
-/* goon corner visuals */
-.goon-corner {
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-  border: 4px solid rgba(255,255,255,0.8);
-  z-index: 40;
-  transform-origin: center;
-  transition: opacity 0.5s;
-}
+/* beetle magnet visuals */
+.goon-corner { z-index: 40; position: absolute; width: 160px; height: 160px; border-radius: 12px; overflow: hidden; pointer-events: none; background: transparent; border: none; box-shadow: none; transition: opacity 0.5s; }
 .goon-corner img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
-.goon-label {
+.goon-label { pointer-events: none; 
   position: absolute;
   bottom: 8px;
   left: 8px;
@@ -185,8 +193,7 @@ button:hover { background-color: #ff8787; }
 
 /* rave visuals */
 body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
-@keyframes raveBG {
-  0% { background: linear-gradient(135deg, #ff9aa2, #ffd3b6); }
+@keyframes raveBG { 0% { background: linear-gradient(135deg, #ffd7a6, #d2a679); } 25% { background: linear-gradient(135deg, #ffd7a6, #e6c89a); } 50% { background: linear-gradient(135deg, #ffd7a6, #d2a679); } 75% { background: linear-gradient(135deg, #e6c89a, #d2a679); } 100% { background: linear-gradient(135deg, #ffd7a6, #d2a679); } }
   25% { background: linear-gradient(135deg, #ffb3ba, #bde0fe); }
   50% { background: linear-gradient(135deg, #caffbf, #ffd6e0); }
   75% { background: linear-gradient(135deg, #ffdfba, #c7ceea); }
@@ -206,7 +213,7 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 #raveModal button { font-size:1.25rem; padding:12px 22px; border-radius: 12px; }
 
 /* info modal (intro) */
-#infoModal {
+#infoModal { opacity: 0.95;
   position: fixed;
   top: 50%;
   left: 50%;
@@ -241,30 +248,69 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 
 /* responsive tweaks */
 @media (max-width:600px){
-  .goon-corner { width:120px; height:120px; }
-  .popup { width: 80px; height: 80px; }
+  .goon-corner { z-index: 100;  width:120px; height:120px; }
+  .popup { pointer-events: auto;  z-index: 90;  width: 80px; height: 80px; }
   #upgradePanel { width: 320px; right: -320px; }
   #whiteCan{ width:48px; height:48px; }
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+body {
+  font-family: 'Press Start 2P', cursive;
+}
+
+#gameTitle {
+  width: 480px;
+  margin-top: 30px;
+  animation: titlePulse 3s ease-in-out infinite;
+  z-index: 10;
+  pointer-events: none;
+}
+
+@keyframes titlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+
+#clickBtn {
+  width: 200px;
+  height: 200px;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.1s ease;
+  user-select: none;
+}
+#clickBtn {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: auto;
+}
+
+#clickBtn:active {
+  transform: scale(0.9);
+  filter: brightness(1.3);
+}
+
 </style>
 </head>
 <body>
-<h1>hellobrobb femboy clicker game 💫</h1>
-<div id="score">tail wags: 0</div>
-<button id="clickBtn">wag tail</button>
+<img id="gameTitle" src="title.png" alt="beetle beater title" />
+<div id="score">beetles <img src="beetle.png" height="16" style="vertical-align:middle;">: 0</div>
+<img id="clickBtn" src="button.png" alt="click button" />
 
 <!-- panel toggle -->
-<button id="panelToggle" title="upgrades">⚙️</button>
+<button id="panelToggle" title="upgrades"></button>
 
 <!-- sliding upgrade panel (ordered cheapest -> priciest) -->
 <div id="upgradePanel" aria-hidden="true">
   <h2>upgrades</h2>
 
-  <!-- 1: default combo increase -->
+  <!-- 1: better base beetle -->
   <div class="upgrade-row" id="upgrade-default-row">
-    <img src="https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?q=80&w=200&auto=format&fit=crop&ixlib=rb-4.0.3&s=placeholder" alt="combo" />
+    <img src="up.png" alt="combo" />
     <div class="upgrade-info">
-      <div class="title">default combo increase</div>
+      <div class="title">better base beetle</div>
       <div class="desc">increases your default combo (applies when combos reset)</div>
       <div class="desc">current: <span id="baseComboDisplay">1</span></div>
     </div>
@@ -274,12 +320,12 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
     </div>
   </div>
 
-  <!-- 2: goon corner -->
+  <!-- 2: beetle magnet -->
   <div class="upgrade-row" id="goon-row">
-    <img src="https://static.wikia.nocookie.net/aesthetics/images/e/e8/Femboy_castiel_onyx.jpg/revision/latest?cb=20230730190533" alt="goon corner" />
+    <img src="mag.png" alt="beetle magnet" />
     <div class="upgrade-info">
-      <div class="title">goon corner</div>
-      <div class="desc">spawns a goon corner image for ~20s — popups spawn more often around it</div>
+      <div class="title">beetle magnet</div>
+      <div class="desc">spawns a beetle magnet image for ~20s — popups spawn more often around it</div>
       <div class="desc">price: base default level × 200</div>
     </div>
     <div>
@@ -290,9 +336,9 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 
   <!-- 3: midas -->
   <div class="upgrade-row" id="midas-row">
-    <img id="midasImg" src="https://m.gjcdn.net/fireside-post-image/900/17320539-vkukq99y-v4.webp" alt="midas" />
+    <img id="midasImg" src="goldup.png" alt="midas" />
     <div class="upgrade-info">
-      <div class="title">midas touchies</div>
+      <div class="title">golden beetle</div>
       <div class="desc">each purchase +5% golden spawn chance (caps at 100%)</div>
       <div class="desc">current chance: <span id="midasChanceDisplay">0%</span></div>
     </div>
@@ -302,11 +348,11 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
     </div>
   </div>
 
-  <!-- 4: background music / rave (purchase multiple times) -->
+  <!-- 4: beetle enchantment / rave (purchase multiple times) -->
   <div class="upgrade-row" id="music-row">
-    <img src="https://i.redd.it/0znk870gnatb1.gif" alt="rave music" />
+    <img src="music.png" alt="rave music" />
     <div class="upgrade-info">
-      <div class="title">background music</div>
+      <div class="title">beetle enchantment</div>
       <div class="desc">play a 1:48 rave — while it plays everything flashes & wags are x2</div>
       <div class="desc">cost each purchase: baseCombo × <strong>2000</strong></div>
       <div class="desc">owned: <span id="musicOwnedCount">0</span></div>
@@ -317,12 +363,12 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
     </div>
   </div>
 
-  <!-- 5: white moinster -->
+  <!-- 5: orb of beetle crushing -->
   <div class="upgrade-row" id="white-row">
-    <img src="monster.png" alt="white moinster" />
+    <img src="orb.png" alt="orb of beetle crushing" />
     <div class="upgrade-info">
-      <div class="title">white moinster</div>
-      <div class="desc">spawns a white can that follows the mouse and auto-pops boykissers nearby</div>
+      <div class="title">orb of beetle crushing</div>
+      <div class="desc">spawns a white can that follows the mouse and auto-pops beetles nearby</div>
       <div class="desc">cost: <span id="whiteCostText">20000</span></div>
       <div class="desc">level: <span id="whiteLevelDisplay">0</span></div>
     </div>
@@ -332,12 +378,12 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
     </div>
   </div>
 
-  <!-- 6: tail swishies (most expensive) -->
+  <!-- 6: shrine of beetle duplication (most expensive) -->
   <div class="upgrade-row" id="swish-row">
-    <img src="https://i.redd.it/717gqnrw5efd1.gif" alt="swish" />
+    <img src="add.png" alt="swish" />
     <div class="upgrade-info">
-      <div class="title">more swishies</div>
-      <div class="desc">adds +1 extra boykisser spawn on click per purchase</div>
+      <div class="title">shrine of beetle duplication</div>
+      <div class="desc">adds +1 extra beetle spawn on click per purchase</div>
       <div class="desc">current extra: <span id="swishLevelDisplay">0</span></div>
     </div>
     <div>
@@ -348,7 +394,7 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 
   <div style="height:12px"></div>
   <div style="text-align:center;color:#666;font-size:0.95rem;">
-    tip: upgrades sorted cheapest → most expensive. white moinster automatically pops boykissers when placed over them.
+    tip: upgrades sorted cheapest → most expensive. orb of beetle crushing automatically pops beetles when placed over them.
   </div>
 </div>
 
@@ -359,10 +405,8 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 
 <!-- intro modal (blocking until dismissed) -->
 <div id="infoModal">
-  <p>hey! :3 come and wag your lil femboy tail to gain points with me! :o<br>
-  click on the femboy to start a combo, the bigger the combo, the more tail waggies you get! :3<br>
-  but you have to move your mouse fast because your combo will reset!! :o<br>
-  click on pop-ups or buy upgrades to increase combo! have fun and wag that tail &gt;:3</p>
+  <p>Click your way through an ever-growing swarm of beetles to collect points, <br>unlock wild upgrades, and chase the all-powerful Beetle Gems.
+Every gem earned shakes the world in a burst of color, <b></b> proving your dominance on the leaderboard.&gt;</p>
   <button id="closeModal">let's play!</button>
 </div>
 
@@ -370,11 +414,11 @@ body.rave { animation: raveBG 3s linear infinite; background-size: 400% 400%;}
 <div id="raveModal">
   <div class="rave-title">start the rave</div>
   <div style="margin:12px 0;">are you ready to start the 1:48 beat?</div>
-  <button id="startRaveBtn">▶️ start the rave</button>
+  <button id="startRaveBtn"> start the rave</button>
 </div>
 
 <!-- white can (hidden until bought) -->
-<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWonlgX3vTqn1ibwvrB6TUh15OdRT_CkCYrw&s" alt="white can" /></div>
+<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="orb.png" alt="orb" /></div></div>
 
 <!-- sounds -->
 <audio id="clickSound" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
@@ -418,7 +462,7 @@ const maxMidasPercent = 100;
 let musicOwnedCount = 0;
 const musicCostMultiplier = 2000; // price = baseCombo * 2000
 
-// white moinster
+// orb of beetle crushing
 let whiteLevel = 0;
 let whiteCost = 20000;
 const whiteBuyMultiplier = 1.5;
@@ -426,16 +470,10 @@ let whiteCanSize = 72;
 let whiteBuildBaseMs = 500;    // base build time (ms) - 0.5s base
 
 // golden image
-const goldenImage = "https://preview.redd.it/this-is-the-boykisser-of-undying-he-only-comes-once-every-v0-37l6o31j02ld1.png?auto=webp&s=fd8e490da4adb67f7db011a332d06f8cf7e78b2a";
+const goldenImage = "gold.png";
 
 /* goon images */
-const goonImagePool = [
-  "https://static.wikia.nocookie.net/aesthetics/images/e/e8/Femboy_castiel_onyx.jpg/revision/latest?cb=20230730190533",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSzMmGFHv_WOPQ4eZuRdPD3AhaKae1FdsZD-A&s",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShZ9W9alXd0e-TG9sl8pPhgnf8Q1gB1izghg&s",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjAWNgshX5jL--frLUMtTU-3XuLbJQUylOtQ&s",
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2v1v2hOMEfpPm37yEsM0a_tsDeJpoSBsNKw&s"
-];
+const goonImagePool = ["mag.png"];
 
 /* active lists */
 const activeGoonCorners = []; // { element, x, y, timeoutId }
@@ -500,7 +538,7 @@ function playBell(){ playSound(bellChime); }
 
 /* update UI */
 function updateDisplay(){
-  scoreDisplay.textContent = `tail wags: ${score} (x${comboMultiplier})`;
+  scoreDisplay.innerHTML = `beetles <img src="beetle.png" height="50" style="vertical-align:middle; filter: drop-shadow(0 0 1px #000);"> ${score}`;
   baseComboDisplay.textContent = baseCombo;
   upgradeCostText.textContent = `cost: ${upgradeCost}`;
   goonCost = baseCombo * 200;
@@ -530,7 +568,7 @@ closeModal.addEventListener("click", () => {
 
 /* visual fx */
 function shakeScreen(){ document.body.classList.add("shake"); setTimeout(()=>document.body.classList.remove("shake"),250); }
-function flashColor(){ const colors=["#ffc0cb","#add8e6","#ffb6c1","#87cefa","#ff69b4"]; flash.style.background=colors[Math.floor(Math.random()*colors.length)]; flash.style.opacity=0.6; setTimeout(()=>flash.style.opacity=0,120); }
+function flashColor(){ const colors=['#ffd7a6','#d2a679','#ffb57a','#e3a857','#ff8c42']; flash.style.background=colors[Math.floor(Math.random()*colors.length)]; flash.style.opacity=0.6; setTimeout(()=>flash.style.opacity=0,120); }
 
 /* spawn particles (lightweight) */
 function spawnParticles(x,y,amount=8, hue=null){
@@ -620,11 +658,11 @@ function spawnPopup({isGolden=false, fromClick=false} = {}){
   if(isGolden){
     img.src = goldenImage;
   } else {
-    img.src = "https://images.seeklogo.com/logo-png/49/2/boykisser-logo-png_seeklogo-494559.png";
+    img.src = "beetle.png";
   }
   wrapper.appendChild(img);
 
-  const size = isGolden ? 120 : 100;
+  const size = isGolden ? 240 : 200;
   const pos = getPopupSpawnPosition(size);
   wrapper.style.left = pos.x + "px";
   wrapper.style.top = pos.y + "px";
@@ -747,7 +785,7 @@ function triggerCombo(x,y){
 function resetCombo(){
   comboActive = false;
   comboMultiplier = baseCombo;
-  document.body.style.background = "linear-gradient(135deg, #ffc0cb, #add8e6)";
+  document.body.style.background = "linear-gradient(135deg, #ffd7a6, #d2a679)";
   hideComboText();
   updateDisplay();
 }
@@ -813,7 +851,7 @@ buyMusicBtn.addEventListener("click", () => {
   } else { alert("not enough points!"); }
 });
 
-/* buy white moinster (cost 20k, x1.5 each buy) */
+/* buy orb of beetle crushing (cost 20k, x1.5 each buy) */
 buyWhiteBtn.addEventListener("click", () => {
   if(score >= whiteCost){
     score -= whiteCost;
@@ -826,9 +864,9 @@ buyWhiteBtn.addEventListener("click", () => {
   } else { alert("not enough points!"); }
 });
 
-/* ---------- create goon corner ---------- */
+/* ---------- create beetle magnet ---------- */
 function createGoonCorner(){
-  const src = goonImagePool[Math.floor(Math.random()*goonImagePool.length)];
+  const src = "mag.png";
   const el = document.createElement("div");
   el.classList.add("goon-corner");
   const img = document.createElement("img");
@@ -837,7 +875,7 @@ function createGoonCorner(){
   el.appendChild(img);
   const label = document.createElement("div");
   label.classList.add("goon-label");
-  label.textContent = "goon corner";
+  label.textContent = "beetle magnet";
   el.appendChild(label);
   const w = 160, h = 160;
   const x = Math.random()*(window.innerWidth - w - 24) + 12;
@@ -887,7 +925,7 @@ function spawnAd(){
   });
   setTimeout(()=>{ if(ad.parentElement) ad.remove(); }, 15000);
 }
-setInterval(()=>{ if(Math.random()<0.65) spawnAd(); }, 7000 + Math.random()*3000);
+//setInterval(()=>{ if(Math.random()<0.65) spawnAd(); }, 7000 + Math.random()*3000);
 
 /* spawn periodic popups - increased chance when goons exist (reduced interval & harder lifetime) */
 setInterval(()=>{
@@ -1088,6 +1126,7 @@ if(whiteCanEl) {
   height: 100%;
   background: #fff;
   box-shadow: 8px 0 24px rgba(0,0,0,0.2);
+  opacity: 0.5;
   transition: left 0.3s ease;
   z-index: 99999;
   padding: 20px;
@@ -1103,7 +1142,7 @@ if(whiteCanEl) {
   z-index: 100000;
   pointer-events: auto;
 }
-#usernameBox {
+#usernameBox { opacity: 0.95;
   background: #fff; padding: 30px; border-radius: 15px;
   text-align: center; max-width: 340px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -1127,7 +1166,7 @@ if(whiteCanEl) {
   <div style="text-align:center;"><button id="changeUsernameBtn">Change Username</button></div>
 </div>
 
-<button id="leaderboardToggle" title="leaderboard">🏆</button>
+<button id="leaderboardToggle" title="leaderboard"></button>
 
 
 <div id="usernameModal" aria-modal="true" role="dialog">
@@ -1377,7 +1416,7 @@ onValue(ref(db, "scores"), (snapshot)=>{
   const arr = Object.values(data).map(v=>({name:v.name, tokens:Number(v.leaderboardTokens)||0}));
   arr.sort((a,b)=>b.tokens - a.tokens);
   const top = arr.slice(0,5);
-  lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.tokens} <img src='https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554' style='width:1em;height:1em;vertical-align:middle;'></li>`).join("");
+  lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.tokens} <img src='https://static.wikia.nocookie.net/fantendo/images/7/7f/gem.png/revision/latest/scale-to-width-down/250?cb=20150316234554' style='width:1em;height:1em;vertical-align:middle;'></li>`).join("");
 });
 
 // Auto-save every 10s if logged in
@@ -1393,58 +1432,50 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
 
 
 
-
-<!-- ======= BEGIN Leaderboard Token Upgrade ======= -->
+<!-- ======= BEGIN beetle gem Upgrade (v18 safe) ======= -->
 <style>
-@keyframes pulsePurple {
-  0% { box-shadow: 0 0 10px 4px rgba(192,0,255,0.6); }
-  50% { box-shadow: 0 0 25px 10px rgba(192,0,255,0.8); }
-  100% { box-shadow: 0 0 10px 4px rgba(192,0,255,0.6); }
-}
+/* beetle gem button styled warm */
 #buyTokenBtn {
-  background: linear-gradient(145deg, #7b00ff, #c000ff);
+  background: linear-gradient(145deg, #ff8c42, #d78b3b);
   color: #fff;
   font-weight: bold;
-  border: 3px solid #d47aff;
+  border: 2px solid rgba(255,200,120,0.35);
   border-radius: 12px;
   width: 95%;
   margin-top: 20px;
-  padding: 16px;
-  font-size: 1.2rem;
-  animation: pulsePurple 2s infinite;
-  transition: transform 0.1s ease;
+  padding: 12px;
+  font-size: 1.05rem;
+  animation: none;
+  transition: transform 0.12s ease;
+  z-index: 70;
 }
-#buyTokenBtn:hover { transform: scale(1.05); }
+#buyTokenBtn:hover { transform: scale(1.03); }
 #purpleFadeOverlay {
   position: fixed; inset: 0;
-  background: rgba(160, 0, 255, 0.3);
+  background: rgba(255,140,66,0.25); /* warm orange flash */
   opacity: 0; pointer-events: none;
-  z-index: 99998;
+  z-index: 9998;
   transition: opacity 0.4s ease;
 }
 #tokenFlyImg {
   position: fixed; width: 48px; height: 48px;
   left: 50%; top: 50%;
   transform: translate(-50%,-50%) scale(0);
-  opacity: 0; z-index: 99999;
+  opacity: 0; z-index: 9999;
   transition: all 1s ease;
-  pointer-events:none;
+  pointer-events: none;
 }
 </style>
 
 <div id="purpleFadeOverlay"></div>
-<img id="tokenFlyImg"
-  src="https://static.wikia.nocookie.net/fantendo/images/7/7f/Purplecoin.png/revision/latest/scale-to-width-down/250?cb=20150316234554"
-  alt="token">
+<img id="tokenFlyImg" src="gem.png" alt="token">
 
 <script>
-// ===== Leaderboard Token Logic (v12) =====
-// No localStorage. Cost is derived from account's leaderboardTokens: cost = 200 * (5 ^ tokensOwned)
+// ===== beetle gem Logic (stable, no localStorage) =====
 if(typeof window.leaderboardTokens === 'undefined') window.leaderboardTokens = 0;
 
 function getLeaderboardTokenCost(){
   const owned = Number(window.leaderboardTokens) || 0;
-  // use BigInt safety for large exponents? keep Number for simplicity; cap to avoid overflow
   const cost = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(200 * Math.pow(5, owned)));
   return cost;
 }
@@ -1456,121 +1487,55 @@ function buyToken(){
   // deduct
   score -= cost;
   if (typeof updateDisplay === "function") updateDisplay();
-  // increment token count in global session state
+  // increment token count and sync to global
   window.leaderboardTokens = (Number(window.leaderboardTokens) || 0) + 1;
-  // persist to Firebase via savePlayerData if available
-  if (typeof window.savePlayerData === "function") {
-    try { window.savePlayerData(); } catch(e){ console.error("savePlayerData error", e); }
-  }
-  // ensure animation runs cleanly
-  setTimeout(()=>{ if(typeof animateTokenPurchase === "function") animateTokenPurchase(); }, 80);
-  // update button label
+  // persist to firebase
+  if(typeof window.savePlayerData === "function") window.savePlayerData();
+  // animate
+  setTimeout(()=>{ if(typeof window.animateTokenPurchase === "function") window.animateTokenPurchase(); }, 80);
+  // update label
   const btn = document.getElementById("buyTokenBtn");
-  if(btn) btn.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
+  if(btn) btn.textContent = " Buy beetle gem (" + getLeaderboardTokenCost() + " tail wags)";
 }
 
-// Create button inside upgrades panel after DOM ready and ensure it updates when player data loads
-window.addEventListener("DOMContentLoaded", ()=>{
-  function createButton(){
-    const upgrades = document.getElementById("upgradePanel");
-    if(!upgrades){
-      setTimeout(createButton, 300);
-      return;
-    }
-    if(document.getElementById("buyTokenBtn")) return;
-    const btn = document.createElement("button");
-    btn.id = "buyTokenBtn";
-    btn.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
-    btn.title = "Leaderboard Tokens get exponentially more expensive. Show your progress!";
+// create button safely when DOM ready (if not exists)
+window.addEventListener('DOMContentLoaded', ()=>{
+  const upgrades = document.getElementById('upgradePanel');
+  if(upgrades && !document.getElementById('buyTokenBtn')){
+    const btn = document.createElement('button');
+    btn.id = 'buyTokenBtn';
+    btn.textContent = " Buy beetle gem (" + getLeaderboardTokenCost() + " tail wags)";
+    btn.addEventListener('click', buyToken);
     upgrades.appendChild(btn);
-    btn.addEventListener("click", buyToken);
-    console.log("💜 Leaderboard token button created.");
   }
-  createButton();
 });
 
-// Update button label whenever player data is loaded into window (loadPlayerData calls updateDisplay)
-// We'll patch loadPlayerData elsewhere to update button text; but also add a periodic check to keep label correct
-setInterval(()=>{
-  const b = document.getElementById("buyTokenBtn");
-  if(b) b.textContent = "💜 Buy Leaderboard Token (" + getLeaderboardTokenCost() + " tail wags)";
-}, 1000);
+function animateTokenPurchase(){
+  const fade = document.getElementById('purpleFadeOverlay');
+  const img = document.getElementById('tokenFlyImg');
+  if(!fade || !img) return;
+  fade.style.opacity = 1;
+  img.style.opacity = 1;
+  img.style.transform = 'translate(-50%,-50%) scale(1.5)';
+  setTimeout(()=>{
+    fade.style.opacity = 0;
+    const icon = document.getElementById('leaderboardToggle');
+    if(icon){
+      const rect = icon.getBoundingClientRect();
+      img.style.transition = 'all 1s ease-in-out';
+      img.style.left = rect.left + rect.width/2 + 'px';
+      img.style.top = rect.top + rect.height/2 + 'px';
+      img.style.transform = 'scale(0)';
+      setTimeout(()=>{
+        img.style.opacity = 0;
+        spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2, 25, 'gold');
+      }, 1000);
+    }
+  }, 300);
+}
+
 </script>
-<!-- ======= END Leaderboard Token Upgrade ======= -->
-
-
-
-<script>
-// ===== animateTokenPurchase (v16) =====
-window.animateTokenPurchase = function animateTokenPurchase(){
-  try{
-    const fade = document.getElementById("purpleFadeOverlay");
-    const tokenImg = document.getElementById("tokenFlyImg");
-    if(!fade || !tokenImg) return;
-
-    // Purple flash overlay
-    fade.style.opacity = "1";
-    setTimeout(()=>{ try{ fade.style.opacity = "0"; }catch(e){} }, 600);
-
-    // Screen shake effect
-    document.body.style.transition = "transform 0.05s";
-    let shakes = 0;
-    const shakeInt = setInterval(()=>{
-      document.body.style.transform = `translate(${(Math.random()-0.5)*14}px, ${(Math.random()-0.5)*14}px)`;
-      shakes++;
-      if(shakes>25){
-        clearInterval(shakeInt);
-        document.body.style.transform = "";
-      }
-    },35);
-
-    // Token pop from center
-    tokenImg.style.transition = "none";
-    tokenImg.style.opacity = "1";
-    tokenImg.style.left = "50%";
-    tokenImg.style.top = "50%";
-    tokenImg.style.transform = "translate(-50%,-50%) scale(1.3)";
-    setTimeout(()=>{ try{ tokenImg.style.transform = "translate(-50%,-50%) scale(1)"; }catch(e){} }, 120);
-
-    // Fly to top-left
-    const targetX = 40, targetY = 40;
-    setTimeout(()=>{
-      tokenImg.style.transition = "all 1.2s cubic-bezier(.2,.8,.2,1)";
-      tokenImg.style.left = targetX + "px";
-      tokenImg.style.top = targetY + "px";
-      tokenImg.style.transform = "scale(0.2)";
-      tokenImg.style.opacity = "0";
-    }, 500);
-
-    // Sparkles
-    setTimeout(()=>{
-      if(typeof spawnParticles === "function"){
-        spawnParticles(targetX, targetY, 20, "gold");
-      } else {
-        // fallback visual: small flash
-        const s = document.createElement('div');
-        s.style.position='fixed'; s.style.left=targetX+'px'; s.style.top=targetY+'px';
-        s.style.width='8px'; s.style.height='8px'; s.style.borderRadius='50%';
-        s.style.background='gold'; s.style.zIndex=99999; document.body.appendChild(s);
-        setTimeout(()=>s.remove(),600);
-      }
-    },1600);
-
-    // Reset token image after animation
-    setTimeout(()=>{
-      try{
-        tokenImg.style.transition = "";
-        tokenImg.style.left = "50%";
-        tokenImg.style.top = "50%";
-        tokenImg.style.opacity = "0";
-        tokenImg.style.transform = "translate(-50%,-50%) scale(0)";
-      }catch(e){}
-    }, 2200);
-  }catch(err){
-    console.error("animateTokenPurchase error", err);
-  }
-};
-</script>
+<!-- ======= END beetle gem Upgrade (v19) ======= -->
 
 </body>
 </html>
