@@ -960,6 +960,12 @@ clickBtn.addEventListener("click", (e) => {
   updateDisplay();
   playSound(clickSound);
   playBell();
+  // periodic save on clicks: every 25 clicks trigger a save to reduce freq while keeping progress safe
+  window._clickSaveCounter = (window._clickSaveCounter || 0) + 1;
+  if (window._clickSaveCounter >= 25) {
+    window._clickSaveCounter = 0;
+    if (typeof window.savePlayerData === "function") window.savePlayerData();
+  }
 });
 
 /* Rave start handling */
@@ -1280,6 +1286,7 @@ function loadPlayerData(obj){
 async function savePlayerData(){
   if(!username) return;
   try{
+    const dbInstance = (typeof getDatabase === 'function' && typeof app !== 'undefined') ? getDatabase(app) : db;
     const payload = {
       name: username,
       pin: pin,
@@ -1291,13 +1298,18 @@ async function savePlayerData(){
       midasChancePercent: Number(window.midasChancePercent) || 0,
       musicOwnedCount: Number(window.musicOwnedCount) || 0
     };
-    // write to firebase
-    await set(ref(db, "scores/" + username), payload);
-    lastSaved = Date.now();
-    if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Saved ✓", true);
+    try {
+      console.log("Saving to Firebase:", "scores/" + username, payload);
+      await set(ref(dbInstance, "scores/" + username), payload);
+      lastSaved = Date.now();
+      if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Saved ✓", true);
+      console.log("✅ Save complete");
+    } catch(saveErr){
+      if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Save failed ✕", false);
+      console.error("❌ Firebase write failed:", saveErr);
+    }
   }catch(e){
-    // show a brief failure indicator
-    if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Save failed ✕", false);
+    console.error("savePlayerData outer error", e);
   }
 }
 
