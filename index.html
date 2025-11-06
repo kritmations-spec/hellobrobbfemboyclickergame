@@ -1328,44 +1328,10 @@ function stopAutoSave(){
 }
 // Init: if saved username+pin in localStorage, try to auto-login
 (async function initUsername(){
-  const savedName = localStorage.getItem("cg_username_5");
-  const savedPin = localStorage.getItem("cg_pin_6");
-  if(savedName && savedPin){
-    // try login with saved creds
-    const rec = await readUserRecord(savedName);
-    if(rec){
-      if(rec.pin === savedPin){
-        username = savedName; pin = savedPin;
-        // hide modal and load data
-        usernameModal.style.display = 'none';
-        loadPlayerData(rec);
-        document.getElementById('lbCurrentName').textContent = username;
-        // start periodic auto-save after successful login
-        startAutoSave();
-        return;
-      } else {
-        // saved creds invalid (someone changed pin) - clear and prompt
-        localStorage.removeItem("cg_username_5");
-        localStorage.removeItem("cg_pin_6");
-      }
-    } else {
-      // record doesn't exist - create new
-      username = savedName; pin = savedPin;
-      const obj = defaultPlayerObject(username, pin);
-      await set(ref(db, "scores/" + username), obj);
-      usernameModal.style.display = "none";
-      loadPlayerData(obj);
-      document.getElementById('lbCurrentName').textContent = username;
-      // start auto-save
-      startAutoSave();
-      return;
-    }
-  }
-  // otherwise show modal
+  // No localStorage auto-login: always require Firebase login on page load
   usernameModal.style.display = "flex";
   usernameInput.focus();
 })();
-
 // Confirm handler: create or login based on existence & pin
 usernameConfirm.addEventListener("click", async ()=>{
   const rawName = (usernameInput.value||"").trim().toUpperCase();
@@ -1377,8 +1343,6 @@ usernameConfirm.addEventListener("click", async ()=>{
     if(existing.pin === rawPin){
       // correct pin -> login
       username = rawName; pin = rawPin;
-      localStorage.setItem("cg_username_5", username);
-      localStorage.setItem("cg_pin_6", pin);
       usernameModal.style.display = "none";
       loadPlayerData(existing);
       // start auto-save after login and ensure latest fields synced
@@ -1394,8 +1358,6 @@ usernameConfirm.addEventListener("click", async ()=>{
     username = rawName; pin = rawPin;
     const obj = defaultPlayerObject(username, pin);
     await set(ref(db, "scores/" + username), obj);
-    localStorage.setItem("cg_username_5", username);
-    localStorage.setItem("cg_pin_6", pin);
     usernameModal.style.display = "none";
     loadPlayerData(obj);
     document.getElementById("lbCurrentName").textContent = username;
@@ -1430,7 +1392,6 @@ if(changeUsernameBtn){
       await set(ref(db, "scores/" + username), null);
       // update local session
       username = newNameRaw;
-      localStorage.setItem("cg_username_5", username);
       alert("Username changed to " + username);
     }catch(e){ console.error("change username error", e); alert("Failed to change username."); }
   });
@@ -1556,44 +1517,7 @@ function animateTokenPurchase(){
   }, 300);
 }
 
-document.getElementById("usernameConfirm").onclick = async function() {
-  const usernameInput = document.getElementById("usernameInput").value.trim();
-  const pinInput = document.getElementById("pinInput").value.trim();
-  if (!usernameInput || !pinInput) {
-    alert("Enter both username and PIN!");
-    return;
-  }
-  username = usernameInput;
-  pin = pinInput;
-  try {
-    const dbRef = ref(db);
-    const snapshot = await get(child(dbRef, "scores/" + username));
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      if (data.pin === pin) {
-        loadPlayerData(data);
-        usernameModal.style.display = "none";
-        document.getElementById("lbCurrentName").textContent = username;
-        startAutoSave();
-        if (typeof initGame === "function") initGame();
-        return;
-      } else {
-        alert("Incorrect PIN!");
-        return;
-      }
-    } else {
-      const newData = {
-        name: username,
-        pin: pin,
-        score: 0,
-        leaderboardTokens: 0,
-        baseCombo: 1,
-        swishLevel: 0,
-        whiteLevel: 0,
-        midasChancePercent: 0,
-        musicOwnedCount: 0
-      };
-      await set(ref(db, "scores/" + username), newData);
+await set(ref(db, "scores/" + username), newData);
       loadPlayerData(newData);
       usernameModal.style.display = "none";
       document.getElementById("lbCurrentName").textContent = username;
