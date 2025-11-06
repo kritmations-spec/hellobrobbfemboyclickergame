@@ -1361,15 +1361,15 @@ function stopAutoSave(){
         return;
       } else {
         // saved creds invalid (someone changed pin) - clear and prompt
-        localStorage.removeItem(\"cg_username_5\");
-        localStorage.removeItem(\"cg_pin_6\");
+        localStorage.removeItem("cg_username_5");
+        localStorage.removeItem("cg_pin_6");
       }
     } else {
       // record doesn't exist - create new
       username = savedName; pin = savedPin;
       const obj = defaultPlayerObject(username, pin);
-      await set(ref(db, \"scores/\" + username), obj);
-      usernameModal.style.display = \"none\";
+      await set(ref(db, "scores/" + username), obj);
+      usernameModal.style.display = "none";
       loadPlayerData(obj);
       document.getElementById('lbCurrentName').textContent = username;
       // start auto-save
@@ -1378,7 +1378,7 @@ function stopAutoSave(){
     }
   }
   // otherwise show modal
-  usernameModal.style.display = \"flex\";
+  usernameModal.style.display = "flex";
   usernameInput.focus();
 })();
 
@@ -1629,4 +1629,5 @@ document.getElementById("usernameConfirm").onclick = async function() {
 
 </body>
 </html>
+
 
