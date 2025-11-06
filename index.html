@@ -801,6 +801,8 @@ upgradeDefaultBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
   } else { alert("not enough points!"); }
 });
 
@@ -812,6 +814,8 @@ buyGoonBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
   } else { alert("not enough points!"); }
 });
 
@@ -823,6 +827,8 @@ buyMidasBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
   } else { alert("not enough points!"); }
 });
 
@@ -834,6 +840,8 @@ buySwishBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
   } else { alert("not enough points!"); }
 });
 
@@ -846,6 +854,8 @@ buyMusicBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
     // show the modal to allow user to start the rave immediately
     raveModal.style.display = "block";
   } else { alert("not enough points!"); }
@@ -861,6 +871,8 @@ buyWhiteBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
+    if(typeof window.savePlayerData === 'function') window.savePlayerData();
+
   } else { alert("not enough points!"); }
 });
 
@@ -1186,7 +1198,7 @@ if(whiteCanEl) {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, child, update } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
 
 // Firebase config (kept)
 const firebaseConfig = {
@@ -1201,6 +1213,15 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+// Expose Firebase functions globally for cross-script access
+window.db = db;
+window.ref = ref;
+window.set = set;
+window.get = get;
+window.onValue = onValue;
+window.child = child;
+window.update = update;
+
 
 // DOM refs
 const lbPanel = document.getElementById("leaderboardPanel");
@@ -1308,6 +1329,19 @@ async function pushLeaderboardTokens(){
   }catch(e){ console.error("pushLeaderboardTokens error", e); }
 }
 
+
+// start auto-save interval (should only run after a successful login)
+let _autoSaveIntervalId = null;
+function startAutoSave(){
+  if(_autoSaveIntervalId) return;
+  // save immediately once, then every 10s
+  try{ if(username) savePlayerData(); }catch(e){}
+  _autoSaveIntervalId = setInterval(()=>{ try{ if(username) savePlayerData(); }catch(e){} }, 10000);
+}
+// stop function if needed
+function stopAutoSave(){
+  if(_autoSaveIntervalId){ clearInterval(_autoSaveIntervalId); _autoSaveIntervalId = null; }
+}
 // Init: if saved username+pin in localStorage, try to auto-login
 (async function initUsername(){
   const savedName = localStorage.getItem("cg_username_5");
@@ -1318,30 +1352,35 @@ async function pushLeaderboardTokens(){
     if(rec){
       if(rec.pin === savedPin){
         username = savedName; pin = savedPin;
-        // login modal stays visible until manual login
-
+        // hide modal and load data
+        usernameModal.style.display = 'none';
         loadPlayerData(rec);
-        if(typeof window.pushScoreToFirebase === "function") window.pushScoreToFirebase();
+        document.getElementById('lbCurrentName').textContent = username;
+        // start periodic auto-save after successful login
+        startAutoSave();
         return;
       } else {
         // saved creds invalid (someone changed pin) - clear and prompt
-        localStorage.removeItem("cg_username_5");
-        localStorage.removeItem("cg_pin_6");
+        localStorage.removeItem(\"cg_username_5\");
+        localStorage.removeItem(\"cg_pin_6\");
       }
     } else {
       // record doesn't exist - create new
       username = savedName; pin = savedPin;
       const obj = defaultPlayerObject(username, pin);
-      await set(ref(db, "scores/" + username), obj);
-      usernameModal.style.display = "none";
+      await set(ref(db, \"scores/\" + username), obj);
+      usernameModal.style.display = \"none\";
       loadPlayerData(obj);
+      document.getElementById('lbCurrentName').textContent = username;
+      // start auto-save
+      startAutoSave();
       return;
     }
   }
   // otherwise show modal
-  usernameModal.style.display = "flex";
+  usernameModal.style.display = \"flex\";
   usernameInput.focus();
-})();
+})();;
 
 // Confirm handler: create or login based on existence & pin
 usernameConfirm.addEventListener("click", async ()=>{
@@ -1358,7 +1397,8 @@ usernameConfirm.addEventListener("click", async ()=>{
       localStorage.setItem("cg_pin_6", pin);
       usernameModal.style.display = "none";
       loadPlayerData(existing);
-      // immediate save to ensure latest fields synced
+      // start auto-save after login and ensure latest fields synced
+      startAutoSave();
       savePlayerData();
       document.getElementById("lbCurrentName").textContent = username;
       alert("Welcome back, " + username + "!");
@@ -1375,6 +1415,8 @@ usernameConfirm.addEventListener("click", async ()=>{
     usernameModal.style.display = "none";
     loadPlayerData(obj);
     document.getElementById("lbCurrentName").textContent = username;
+    // start auto-save after new account created
+    startAutoSave();
       alert("Account created: " + username);
   }
 });
@@ -1419,9 +1461,7 @@ onValue(ref(db, "scores"), (snapshot)=>{
   lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.tokens} <img src='https://static.wikia.nocookie.net/fantendo/images/7/7f/gem.png/revision/latest/scale-to-width-down/250?cb=20150316234554' style='width:1em;height:1em;vertical-align:middle;'></li>`).join("");
 });
 
-// Auto-save every 10s if logged in
-setInterval(()=>{ try{ if(username) savePlayerData(); }catch(e){} }, 10000);
-
+// Auto-save will be started after login using startAutoSave()
 // Expose save functions for other scripts (compat)
 window.savePlayerData = savePlayerData;
 window.pushLeaderboardTokens = pushLeaderboardTokens;
@@ -1534,6 +1574,56 @@ function animateTokenPurchase(){
   }, 300);
 }
 
+
+document.getElementById("usernameConfirm").onclick = async function() {
+  const usernameInput = document.getElementById("usernameInput").value.trim();
+  const pinInput = document.getElementById("pinInput").value.trim();
+  if (!usernameInput || !pinInput) {
+    alert("Enter both username and PIN!");
+    return;
+  }
+  username = usernameInput;
+  pin = pinInput;
+  try {
+    const dbRef = ref(db);
+    const snapshot = await get(child(dbRef, "scores/" + username));
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      if (data.pin === pin) {
+        loadPlayerData(data);
+        usernameModal.style.display = "none";
+        document.getElementById("lbCurrentName").textContent = username;
+        startAutoSave();
+        if (typeof initGame === "function") initGame();
+        return;
+      } else {
+        alert("Incorrect PIN!");
+        return;
+      }
+    } else {
+      const newData = {
+        name: username,
+        pin: pin,
+        score: 0,
+        leaderboardTokens: 0,
+        baseCombo: 1,
+        swishLevel: 0,
+        whiteLevel: 0,
+        midasChancePercent: 0,
+        musicOwnedCount: 0
+      };
+      await set(ref(db, "scores/" + username), newData);
+      loadPlayerData(newData);
+      usernameModal.style.display = "none";
+      document.getElementById("lbCurrentName").textContent = username;
+      startAutoSave();
+      if (typeof initGame === "function") initGame();
+      return;
+    }
+  } catch (error) {
+    alert("Login error, please try again.");
+  }
+};
 </script>
 <!-- ======= END beetle gem Upgrade (v19) ======= -->
 
