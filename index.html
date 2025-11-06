@@ -416,7 +416,7 @@ Every gem earned shakes the world in a burst of color, <b></b> proving your domi
 </div>
 
 <!-- white can (hidden until bought) -->
-<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="orb.png" alt="orb" /></div>
+<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="orb.png" alt="orb" /></div></div>
 
 <!-- sounds -->
 <audio id="clickSound" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
@@ -799,9 +799,8 @@ upgradeDefaultBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 buyGoonBtn.addEventListener("click", () => {
@@ -812,9 +811,8 @@ buyGoonBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 buyMidasBtn.addEventListener("click", () => {
@@ -825,9 +823,8 @@ buyMidasBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 buySwishBtn.addEventListener("click", () => {
@@ -838,9 +835,8 @@ buySwishBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 /* music purchase: buy multiple times; each purchase cost = baseCombo * 2000 */
@@ -852,11 +848,10 @@ buyMusicBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
     // show the modal to allow user to start the rave immediately
     raveModal.style.display = "block";
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 /* buy orb of beetle crushing (cost 20k, x1.5 each buy) */
@@ -869,9 +864,8 @@ buyWhiteBtn.addEventListener("click", () => {
     updateDisplay();
     playSound(upgradeSound);
     playBell();
-    if(typeof window.savePlayerData === 'function') window.savePlayerData();
-
   } else { alert("not enough points!"); }
+    if(typeof window.savePlayerData === "function") window.savePlayerData();
 });
 
 /* ---------- create beetle magnet ---------- */
@@ -960,12 +954,9 @@ clickBtn.addEventListener("click", (e) => {
   updateDisplay();
   playSound(clickSound);
   playBell();
-  // periodic save on clicks: every 25 clicks trigger a save to reduce freq while keeping progress safe
+  // periodic save on clicks
   window._clickSaveCounter = (window._clickSaveCounter || 0) + 1;
-  if (window._clickSaveCounter >= 25) {
-    window._clickSaveCounter = 0;
-    if (typeof window.savePlayerData === "function") window.savePlayerData();
-  }
+  if(window._clickSaveCounter >= 25){ window._clickSaveCounter = 0; if(typeof window.savePlayerData === "function") window.savePlayerData(); }
 });
 
 /* Rave start handling */
@@ -1213,7 +1204,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-// expose to other script scopes
+// expose firebase objects for other scripts
 window.app = app;
 window.db = db;
 window.ref = ref;
@@ -1307,13 +1298,13 @@ async function savePlayerData(){
       midasChancePercent: Number(window.midasChancePercent) || 0,
       musicOwnedCount: Number(window.musicOwnedCount) || 0
     };
-    try {
+    try{
       console.log("Saving to Firebase:", "scores/" + username, payload);
       await set(ref(dbInst, "scores/" + username), payload);
       lastSaved = Date.now();
       if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Saved ✓", true);
       console.log("✅ Save complete");
-    } catch(saveErr){
+    }catch(saveErr){
       if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Save failed ✕", false);
       console.error("❌ Firebase write failed:", saveErr);
     }
@@ -1340,21 +1331,9 @@ async function pushLeaderboardTokens(){
   }catch(e){ console.error("pushLeaderboardTokens error", e); }
 }
 
-// start auto-save interval (should only run after a successful login)
-let _autoSaveIntervalId = null;
-function startAutoSave(){
-  if(_autoSaveIntervalId) return;
-  // save immediately once, then every 10s
-  try{ if(username) savePlayerData(); }catch(e){}
-  _autoSaveIntervalId = setInterval(()=>{ try{ if(username) savePlayerData(); }catch(e){} }, 10000);
-}
-// stop function if needed
-function stopAutoSave(){
-  if(_autoSaveIntervalId){ clearInterval(_autoSaveIntervalId); _autoSaveIntervalId = null; }
-}
 // Init: if saved username+pin in localStorage, try to auto-login
 (async function initUsername(){
-  // No localStorage: require login on every load
+  // Always require fresh login (no localStorage)
   usernameModal.style.display = "flex";
   usernameInput.focus();
 })();
@@ -1398,8 +1377,6 @@ onValue(ref(db, "scores"), (snapshot)=>{
   lbList.innerHTML = top.map((p,i)=>`<li><strong>${i+1}. ${p.name}</strong> — ${p.tokens} <img src='https://static.wikia.nocookie.net/fantendo/images/7/7f/gem.png/revision/latest/scale-to-width-down/250?cb=20150316234554' style='width:1em;height:1em;vertical-align:middle;'></li>`).join("");
 });
 
-// Auto-save will be started after login using startAutoSave()
-
 // Confirm handler (module-scoped) - login or create user in Firebase (no localStorage)
 usernameConfirm.addEventListener("click", async ()=>{
   const rawName = (usernameInput.value||"").trim().toUpperCase();
@@ -1417,7 +1394,6 @@ usernameConfirm.addEventListener("click", async ()=>{
         usernameModal.style.display = "none";
         document.getElementById("lbCurrentName").textContent = username;
         startAutoSave();
-        // immediate sync to ensure UI & DB in agreement
         await savePlayerData();
         alert("Welcome back, " + username + "!");
         return;
@@ -1426,7 +1402,6 @@ usernameConfirm.addEventListener("click", async ()=>{
         return;
       }
     } else {
-      // create new account object and write to firebase
       username = rawName; pin = rawPin;
       const newObj = defaultPlayerObject(username, pin);
       await set(ref(dbInst, "scores/" + username), newObj);
@@ -1443,6 +1418,9 @@ usernameConfirm.addEventListener("click", async ()=>{
     alert("Login error, please try again.");
   }
 });
+
+// Auto-save every 10s if logged in
+setInterval(()=>{ try{ if(username) savePlayerData(); }catch(e){} }, 10000);
 
 // Expose save functions for other scripts (compat)
 window.savePlayerData = savePlayerData;
@@ -1554,18 +1532,6 @@ function animateTokenPurchase(){
   }, 300);
 }
 
-await set(ref(db, "scores/" + username), newData);
-      loadPlayerData(newData);
-      usernameModal.style.display = "none";
-      document.getElementById("lbCurrentName").textContent = username;
-      startAutoSave();
-      if (typeof initGame === "function") initGame();
-      return;
-    }
-  } catch (error) {
-    alert("Login error, please try again.");
-  }
-};
 </script>
 <!-- ======= END beetle gem Upgrade (v19) ======= -->
 
@@ -1601,7 +1567,6 @@ window.showSaveStatus = (text, success=true) => {
     el.classList.remove('show-success','show-fail');
     void el.offsetWidth;
     el.classList.add(success ? 'show-success' : 'show-fail');
-    // fade out after 2s
     clearTimeout(el._hideTimeout);
     el._hideTimeout = setTimeout(()=>{ el.classList.remove('show-success','show-fail'); }, 2000);
   }catch(e){}
