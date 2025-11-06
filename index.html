@@ -41,7 +41,6 @@ body::before {
 /* ensure main content stacks above background */
 #upgradePanel, #leaderboardPanel, #usernameModal, #infoModal, #raveModal { z-index: 60; }
 
-
   text-transform: lowercase;
   padding-top: 50px;
 }
@@ -273,7 +272,6 @@ body {
   50% { transform: scale(1.05); }
 }
 
-
 #clickBtn {
   width: 200px;
   height: 200px;
@@ -418,7 +416,7 @@ Every gem earned shakes the world in a burst of color, <b></b> proving your domi
 </div>
 
 <!-- white can (hidden until bought) -->
-<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="orb.png" alt="orb" /></div></div>
+<div id="whiteCan" style="display:none;"><img id="whiteCanImg" src="orb.png" alt="orb" /></div>
 
 <!-- sounds -->
 <audio id="clickSound" src="https://freesound.org/data/previews/341/341695_62468-lq.mp3"></audio>
@@ -1126,7 +1124,6 @@ if(whiteCanEl) {
 }
 </script>
 
-
 <!-- ======= BEGIN Leaderboard & Username Integration (FIXED) ======= -->
 <style>
 /* leaderboard styles */
@@ -1180,7 +1177,6 @@ if(whiteCanEl) {
 
 <button id="leaderboardToggle" title="leaderboard"></button>
 
-
 <div id="usernameModal" aria-modal="true" role="dialog">
   <div id="usernameBox">
     <h2 style="margin:0 0 8px 0;">Enter your 5-letter name & 6-digit PIN</h2>
@@ -1193,8 +1189,6 @@ if(whiteCanEl) {
     <p style="margin-top:10px;color:#666;font-size:0.9rem;text-align:center;">If the name exists, the PIN will log you into it. If not, a new account will be created with that PIN.</p>
   </div>
 </div>
-
-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
@@ -1213,15 +1207,6 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-// Expose Firebase functions globally for cross-script access
-window.db = db;
-window.ref = ref;
-window.set = set;
-window.get = get;
-window.onValue = onValue;
-window.child = child;
-window.update = update;
-
 
 // DOM refs
 const lbPanel = document.getElementById("leaderboardPanel");
@@ -1328,7 +1313,6 @@ async function pushLeaderboardTokens(){
     });
   }catch(e){ console.error("pushLeaderboardTokens error", e); }
 }
-
 
 // start auto-save interval (should only run after a successful login)
 let _autoSaveIntervalId = null;
@@ -1470,8 +1454,6 @@ window.pushLeaderboardTokens = pushLeaderboardTokens;
 
 <!-- ======= END Leaderboard & Username Integration (FIXED) ======= -->
 
-
-
 <!-- ======= BEGIN beetle gem Upgrade (v18 safe) ======= -->
 <style>
 /* beetle gem button styled warm */
@@ -1574,7 +1556,6 @@ function animateTokenPurchase(){
   }, 300);
 }
 
-
 document.getElementById("usernameConfirm").onclick = async function() {
   const usernameInput = document.getElementById("usernameInput").value.trim();
   const pinInput = document.getElementById("pinInput").value.trim();
@@ -1629,5 +1610,3 @@ document.getElementById("usernameConfirm").onclick = async function() {
 
 </body>
 </html>
-
-
