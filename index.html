@@ -1213,6 +1213,15 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+// expose to other script scopes
+window.app = app;
+window.db = db;
+window.ref = ref;
+window.set = set;
+window.get = get;
+window.onValue = onValue;
+window.child = child;
+window.update = update;
 
 // DOM refs
 const lbPanel = document.getElementById("leaderboardPanel");
@@ -1286,7 +1295,7 @@ function loadPlayerData(obj){
 async function savePlayerData(){
   if(!username) return;
   try{
-    const dbInstance = (typeof getDatabase === 'function' && typeof app !== 'undefined') ? getDatabase(app) : db;
+    const dbInst = (typeof getDatabase === 'function' && typeof app !== 'undefined') ? getDatabase(app) : window.db;
     const payload = {
       name: username,
       pin: pin,
@@ -1300,7 +1309,7 @@ async function savePlayerData(){
     };
     try {
       console.log("Saving to Firebase:", "scores/" + username, payload);
-      await set(ref(dbInstance, "scores/" + username), payload);
+      await set(ref(dbInst, "scores/" + username), payload);
       lastSaved = Date.now();
       if(typeof window.showSaveStatus === 'function') window.showSaveStatus("Saved ✓", true);
       console.log("✅ Save complete");
@@ -1345,45 +1354,11 @@ function stopAutoSave(){
 }
 // Init: if saved username+pin in localStorage, try to auto-login
 (async function initUsername(){
-  // No localStorage auto-login: always require Firebase login on page load
+  // No localStorage: require login on every load
   usernameModal.style.display = "flex";
   usernameInput.focus();
 })();
 // Confirm handler: create or login based on existence & pin
-usernameConfirm.addEventListener("click", async ()=>{
-  const rawName = (usernameInput.value||"").trim().toUpperCase();
-  const rawPin = (pinInput.value||"").trim();
-  if(!/^[A-Z]{5}$/.test(rawName)){ alert("Must be exactly 5 letters (A-Z) for username."); return; }
-  if(!/^[A-Za-z0-9]{6}$/.test(rawPin)){ alert("PIN must be exactly 6 letters/numbers."); return; }
-  const existing = await readUserRecord(rawName);
-  if(existing){
-    if(existing.pin === rawPin){
-      // correct pin -> login
-      username = rawName; pin = rawPin;
-      usernameModal.style.display = "none";
-      loadPlayerData(existing);
-      // start auto-save after login and ensure latest fields synced
-      startAutoSave();
-      savePlayerData();
-      document.getElementById("lbCurrentName").textContent = username;
-      alert("Welcome back, " + username + "!");
-    } else {
-      alert("Incorrect PIN for that username.");
-    }
-  } else {
-    // create new account
-    username = rawName; pin = rawPin;
-    const obj = defaultPlayerObject(username, pin);
-    await set(ref(db, "scores/" + username), obj);
-    usernameModal.style.display = "none";
-    loadPlayerData(obj);
-    document.getElementById("lbCurrentName").textContent = username;
-    // start auto-save after new account created
-    startAutoSave();
-      alert("Account created: " + username);
-  }
-});
-
 // Random name fill (doesn't set pin)
 usernameRandom.addEventListener("click", async ()=>{
   const candidate = randomName();
@@ -1424,6 +1399,51 @@ onValue(ref(db, "scores"), (snapshot)=>{
 });
 
 // Auto-save will be started after login using startAutoSave()
+
+// Confirm handler (module-scoped) - login or create user in Firebase (no localStorage)
+usernameConfirm.addEventListener("click", async ()=>{
+  const rawName = (usernameInput.value||"").trim().toUpperCase();
+  const rawPin = (pinInput.value||"").trim();
+  if(!/^[A-Z]{5}$/.test(rawName)){ alert("Must be exactly 5 letters (A-Z) for username."); return; }
+  if(!/^[A-Za-z0-9]{6}$/.test(rawPin)){ alert("PIN must be exactly 6 letters/numbers."); return; }
+  try{
+    const dbInst = (typeof getDatabase === 'function' && typeof app !== 'undefined') ? getDatabase(app) : window.db;
+    const snap = await get(ref(dbInst, "scores/" + rawName));
+    if(snap && snap.exists()){
+      const existing = snap.val();
+      if(existing.pin === rawPin){
+        username = rawName; pin = rawPin;
+        loadPlayerData(existing);
+        usernameModal.style.display = "none";
+        document.getElementById("lbCurrentName").textContent = username;
+        startAutoSave();
+        // immediate sync to ensure UI & DB in agreement
+        await savePlayerData();
+        alert("Welcome back, " + username + "!");
+        return;
+      } else {
+        alert("Incorrect PIN for that username.");
+        return;
+      }
+    } else {
+      // create new account object and write to firebase
+      username = rawName; pin = rawPin;
+      const newObj = defaultPlayerObject(username, pin);
+      await set(ref(dbInst, "scores/" + username), newObj);
+      loadPlayerData(newObj);
+      usernameModal.style.display = "none";
+      document.getElementById("lbCurrentName").textContent = username;
+      startAutoSave();
+      await savePlayerData();
+      alert("Account created: " + username);
+      return;
+    }
+  }catch(err){
+    console.error("Login/create error", err);
+    alert("Login error, please try again.");
+  }
+});
+
 // Expose save functions for other scripts (compat)
 window.savePlayerData = savePlayerData;
 window.pushLeaderboardTokens = pushLeaderboardTokens;
@@ -1548,7 +1568,6 @@ await set(ref(db, "scores/" + username), newData);
 };
 </script>
 <!-- ======= END beetle gem Upgrade (v19) ======= -->
-
 
 <style>
 #saveIndicator {
