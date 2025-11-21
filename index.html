@@ -1104,6 +1104,32 @@ setInterval(()=> {
   activePopups = activePopups.filter(p => document.body.contains(p.element));
 }, 1500);
 
+
+/* --------- sync helper for module loader (copies window.* into lexical vars) --------- */
+window.applyLoadedData = function(){
+  try{
+    if(typeof window.score !== 'undefined') score = Number(window.score) || 0;
+    if(typeof window.baseCombo !== 'undefined') baseCombo = Number(window.baseCombo) || baseCombo;
+    if(typeof window.swishLevel !== 'undefined') swishLevel = Number(window.swishLevel) || swishLevel;
+    if(typeof window.whiteLevel !== 'undefined') whiteLevel = Number(window.whiteLevel) || whiteLevel;
+    if(typeof window.midasChancePercent !== 'undefined') midasChancePercent = Number(window.midasChancePercent) || midasChancePercent;
+    if(typeof window.musicOwnedCount !== 'undefined') musicOwnedCount = Number(window.musicOwnedCount) || musicOwnedCount;
+
+    if(typeof window.upgradeCost !== 'undefined') upgradeCost = Number(window.upgradeCost) || upgradeCost;
+    if(typeof window.goonCost !== 'undefined') goonCost = Number(window.goonCost) || (baseCombo*200);
+    if(typeof window.midasCost !== 'undefined') midasCost = Number(window.midasCost) || midasCost;
+    if(typeof window.swishCost !== 'undefined') swishCost = Number(window.swishCost) || swishCost;
+    if(typeof window.whiteCost !== 'undefined') whiteCost = Number(window.whiteCost) || whiteCost;
+
+    // recalc any dependent derived values
+    goonCost = baseCombo * 200;
+    if(typeof updateDisplay === 'function') updateDisplay();
+    if(typeof ensureWhiteCan === 'function' && whiteLevel > 0) ensureWhiteCan();
+  }catch(e){
+    console.error('applyLoadedData error', e);
+  }
+};
+
 /* ---------- initialization ---------- */
 comboMultiplier = baseCombo;
 updateDisplay();
@@ -1264,10 +1290,11 @@ function defaultPlayerObject(name, pinCode){
 }
 
 // apply loaded data into the game's global variables
+
 function loadPlayerData(obj){
   if(!obj) return;
-  // these global variables exist in the main script; assign them
   try{
+    // basic fields (keep compatibility)
     window.score = Number(obj.score) || 0;
     window.leaderboardTokens = Number(obj.leaderboardTokens) || 0;
     window.baseCombo = Number(obj.baseCombo) || 1;
@@ -1275,14 +1302,22 @@ function loadPlayerData(obj){
     window.whiteLevel = Number(obj.whiteLevel) || 0;
     window.midasChancePercent = Number(obj.midasChancePercent) || 0;
     window.musicOwnedCount = Number(obj.musicOwnedCount) || 0;
-    // ensure any dependent costs/locks are recalculated by the game's updateDisplay()
-    if(typeof window.updateDisplay === "function") window.updateDisplay();
-    // ensure white can visibility and size update if needed
-    if(window.ensureWhiteCan && window.whiteLevel > 0) window.ensureWhiteCan();
-  }catch(e){ console.error("loadPlayerData error", e); }
-}
 
-// save full player object to Firebase under their username
+    // restored costs / derived values
+    window.upgradeCost = (typeof obj.upgradeCost !== 'undefined') ? Number(obj.upgradeCost) : undefined;
+    window.goonCost = (typeof obj.goonCost !== 'undefined') ? Number(obj.goonCost) : undefined;
+    window.midasCost = (typeof obj.midasCost !== 'undefined') ? Number(obj.midasCost) : undefined;
+    window.swishCost = (typeof obj.swishCost !== 'undefined') ? Number(obj.swishCost) : undefined;
+    window.whiteCost = (typeof obj.whiteCost !== 'undefined') ? Number(obj.whiteCost) : undefined;
+
+    // allow main script to copy window.* into its local variables
+    if(typeof window.applyLoadedData === 'function') window.applyLoadedData();
+  }catch(e){
+    console.error("loadPlayerData error", e);
+  }
+}
+ under their username
+
 async function savePlayerData(){
   if(!username) return;
   try{
@@ -1296,7 +1331,14 @@ async function savePlayerData(){
       swishLevel: Number(window.swishLevel) || 0,
       whiteLevel: Number(window.whiteLevel) || 0,
       midasChancePercent: Number(window.midasChancePercent) || 0,
-      musicOwnedCount: Number(window.musicOwnedCount) || 0
+      musicOwnedCount: Number(window.musicOwnedCount) || 0,
+
+      // extra: persist current costs so UI/prices are restored exactly
+      upgradeCost: (typeof window.upgradeCost !== 'undefined') ? Number(window.upgradeCost) : (typeof upgradeCost !== 'undefined' ? Number(upgradeCost) : 50),
+      goonCost: (typeof window.goonCost !== 'undefined') ? Number(window.goonCost) : (typeof goonCost !== 'undefined' ? Number(goonCost) : (Number(window.baseCombo||1)*200)),
+      midasCost: (typeof window.midasCost !== 'undefined') ? Number(window.midasCost) : (typeof midasCost !== 'undefined' ? Number(midasCost) : 500),
+      swishCost: (typeof window.swishCost !== 'undefined') ? Number(window.swishCost) : (typeof swishCost !== 'undefined' ? Number(swishCost) : 100000),
+      whiteCost: (typeof window.whiteCost !== 'undefined') ? Number(window.whiteCost) : (typeof whiteCost !== 'undefined' ? Number(whiteCost) : 20000)
     };
     try{
       console.log("Saving to Firebase:", "scores/" + username, payload);
@@ -1312,6 +1354,7 @@ async function savePlayerData(){
     console.error("savePlayerData outer error", e);
   }
 }
+
 
 // push token count only used by older code; keep for compatibility
 async function pushLeaderboardTokens(){
